@@ -1,0 +1,14 @@
+services:
+  - type: web
+    name: clipdrop
+    runtime: docker
+    plan: free
+    region: singapore
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /api/health
+    autoDeployTrigger: "off"
+    envVars:
+      - key: CLIPDROP_PUBLIC
+        value: "1"
+      - key: CLIPDROP_SESSION_SECRET
+        generateValue: true

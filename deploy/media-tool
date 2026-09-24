@@ -1,0 +1,6 @@
+#!/bin/sh
+# External media tools may read local files only. Network downloads use Python
+# transports, checked by the worker's socket audit hook.
+set -eu
+tool=$(basename "$0")
+exec "/usr/bin/$tool" -protocol_whitelist file,pipe "$@"

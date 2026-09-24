@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="description" content="Tải video và âm thanh công khai về máy với yt-dlp.">
+  <title>Clipdrop — Lưu một điều hay.</title>
+  <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/static/style.css"><script src="/static/app.js" defer></script>
+</head>
+<body>
+  <header class="topbar"><a class="brand" href="/" aria-label="Clipdrop trang chủ"><span class="brand-icon">↓</span>clipdrop<span class="brand-dot">.</span></a><span class="local-badge"><i></i><span id="mode-label">Không gian local của bạn</span></span></header>
+  <main>
+    <section class="intro"><p class="eyebrow">TỪ MỘT ĐƯỜNG LINK, VỀ MÁY CỦA BẠN</p><h1>Lưu một điều hay<span>.</span></h1><p>Video để xem lại. Âm thanh để mang theo.<br>Dán link và chọn phiên bản phù hợp với bạn.</p></section>
+    <section class="workspace" aria-label="Tải video">
+      <div class="step-heading"><span class="step">01</span><h2>Bắt đầu với một đường link</h2><span class="small-tag">VIDEO / AUDIO</span></div>
+      <form id="inspect-form"><label for="url">Link video</label><div class="input-row"><span class="link-icon" aria-hidden="true">↗</span><input id="url" name="url" type="url" placeholder="https://…" required maxlength="2048" autocomplete="url"><button id="inspect-button" type="submit">Xem thông tin <span aria-hidden="true">→</span></button></div></form>
+      <p id="source-hint" class="input-hint">Hỗ trợ các nguồn công khai tương thích với yt-dlp. Mỗi lần một video.</p>
+      <div id="notice" class="notice" role="status" hidden></div>
+      <div id="error" class="error" role="alert" hidden></div>
+      <div id="loading" class="loading" role="status" hidden><span class="spinner"></span> Đang tìm thông tin và các định dạng có sẵn…</div>
+      <section id="empty" class="empty"><div class="empty-icon" aria-hidden="true">↓</div><h3>Link của bạn. Lựa chọn của bạn.</h3><p>Thông tin video và chất lượng tải xuống<br>sẽ xuất hiện ở đây.</p><div class="empty-labels"><span>Video + âm thanh</span><span>Chỉ âm thanh</span></div></section>
+      <section id="result" hidden aria-label="Thông tin và định dạng">
+        <div class="video-summary"><div class="thumbnail"><img id="thumbnail" alt="" hidden><span id="thumbnail-placeholder" aria-hidden="true">▶</span><span id="duration"></span></div><div class="video-info"><span id="source" class="source"></span><h3 id="video-title"></h3><p id="uploader"></p></div></div>
+        <div class="choose-heading"><div class="step-heading"><span class="step">02</span><h2>Chọn cách bạn muốn lưu</h2></div><div class="segmented" role="group" aria-label="Loại nội dung"><button id="video-tab" type="button" aria-pressed="true">Video</button><button id="audio-tab" type="button" aria-pressed="false">Âm thanh</button></div></div>
+        <div class="selection-grid"><div><label for="format">Chất lượng & định dạng</label><select id="format"></select></div><div class="size-block"><span>Dung lượng ước tính</span><strong id="size">—</strong></div></div>
+        <p id="format-note" class="input-hint"></p>
+        <button id="download-button" class="download-button" type="button">Chuẩn bị tải xuống <span aria-hidden="true">↓</span></button>
+      </section>
+      <section id="job" class="job" hidden aria-label="Tiến độ tải"><div class="job-top"><strong id="job-label" role="status">Đang chuẩn bị…</strong><span id="percent"></span></div><progress id="progress" max="100" aria-label="Tiến độ tải"></progress><p id="job-detail"></p><a id="save-file" class="save-file" hidden>Tải file về máy ↓</a><button id="retry-status" type="button" hidden>Kiểm tra lại tiến độ</button></section>
+    </section>
+    <div class="footnotes"><div><span class="note-icon">↙</span><div><strong>Lưu ngay trên máy</strong><p id="storage-hint">Xử lý qua backend local của bạn.</p></div></div><div><span class="note-icon">≋</span><div><strong>Đúng chất lượng bạn cần</strong><p>Chọn từ những định dạng nguồn cung cấp.</p></div></div></div>
+    <p class="rights">Chỉ tải nội dung bạn sở hữu hoặc được phép tải. Không hỗ trợ DRM, nội dung riêng tư hay vượt giới hạn truy cập.</p>
+  </main>
+  <footer><span>CLIPDROP <span class="footer-slash">/</span> Made for your own collection</span><span id="health">Đang kiểm tra hệ thống…</span></footer>
+</body>
+</html>
