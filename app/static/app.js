@@ -5,7 +5,10 @@ const bytes = (n) => n ? (n >= 1024 ** 3 ? `${(n / 1024 ** 3).toFixed(2)} GB` : 
 const duration = (s) => { if (!s) return ''; s = Math.round(s); return s >= 3600 ? `${Math.floor(s / 3600)}:${String(Math.floor(s / 60) % 60).padStart(2,'0')}:${String(s % 60).padStart(2,'0')}` : `${Math.floor(s / 60)}:${String(s % 60).padStart(2,'0')}`; };
 function showError(message) { $('error').textContent = message; $('error').hidden = false; }
 async function api(url, data) {
-  const response = await fetch(url, data ? {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)} : {});
+  const headers = {'Content-Type':'application/json'};
+  const ownerKey = localStorage.getItem('clipdrop-owner');
+  if (ownerKey) headers['X-Owner-Token'] = ownerKey;
+  const response = await fetch(url, data ? {method:'POST',headers,body:JSON.stringify(data)} : {headers: ownerKey ? {'X-Owner-Token': ownerKey} : {}});
   const body = await response.json();
   if (!response.ok) { const error = new Error(typeof body.detail === 'string' ? body.detail : 'Dữ liệu không hợp lệ. Hãy kiểm tra lại.'); error.status = response.status; throw error; }
   return body;
@@ -89,6 +92,15 @@ async function poll() {
   polling = false;
 }
 $('retry-status').addEventListener('click', poll);
+const ownerInput = $('owner-key');
+if (ownerInput) {
+  ownerInput.value = localStorage.getItem('clipdrop-owner') || '';
+  const saveOwner = () => {
+    const v = ownerInput.value.trim();
+    if (v) localStorage.setItem('clipdrop-owner', v); else localStorage.removeItem('clipdrop-owner');
+  };
+  ownerInput.addEventListener('change', saveOwner);
+}
 async function init() {
   try {
     const health = await api('/api/health');

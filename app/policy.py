@@ -15,6 +15,7 @@ PUBLIC = os.getenv('CLIPDROP_PUBLIC', '0') == '1'
 PUBLIC_HOST = os.getenv('RENDER_EXTERNAL_HOSTNAME', '') or os.getenv('CLIPDROP_HOST', '')
 ORIGIN = f'https://{PUBLIC_HOST}' if PUBLIC_HOST else ''
 SECRET = os.getenv('CLIPDROP_SESSION_SECRET') or secrets.token_hex(32)
+OWNER_TOKEN = os.getenv('CLIPDROP_OWNER_TOKEN', '')
 TTL = 600 if PUBLIC else 3600
 CONCURRENCY = 1 if PUBLIC else 2
 QUEUE_SIZE = 8 if PUBLIC else 2  # includes running jobs
@@ -49,6 +50,12 @@ def session_cookie(value=None):
     token = secrets.token_hex(24)
     return token, f'{token}.{hmac.new(SECRET.encode(), token.encode(), hashlib.sha256).hexdigest()}'
 
+
+def owner_authorized(value=None):
+    """Check the owner bypass token. Never authorizes when unset."""
+    if not OWNER_TOKEN or not value:
+        return False
+    return hmac.compare_digest(value, OWNER_TOKEN)
 
 def rate_allowed(key, count, seconds):
     now = time.monotonic()

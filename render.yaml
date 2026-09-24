@@ -12,3 +12,5 @@ services:
         value: "1"
       - key: CLIPDROP_SESSION_SECRET
         generateValue: true
+      - key: CLIPDROP_OWNER_TOKEN
+        sync: false

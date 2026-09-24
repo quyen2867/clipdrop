@@ -41,6 +41,17 @@ def test_session_signature_and_tampering():
     assert policy.session_cookie('malformed')[0] != owner
 
 
+def test_owner_token_never_authorizes_when_unset(monkeypatch):
+    monkeypatch.setattr(policy, 'OWNER_TOKEN', '')
+    assert not policy.owner_authorized('anything')
+    assert not policy.owner_authorized('')
+    assert not policy.owner_authorized(None)
+    monkeypatch.setattr(policy, 'OWNER_TOKEN', 'secret-token')
+    assert policy.owner_authorized('secret-token')
+    assert not policy.owner_authorized('wrong')
+    assert not policy.owner_authorized('')
+
+
 @pytest.mark.parametrize('address', ['127.0.0.1', '10.2.3.4', '192.168.1.2', '169.254.169.254',
     '100.100.100.200', '0.0.0.0', '224.0.0.1', '::1', 'fc00::1', 'fe80::1',
     '::ffff:127.0.0.1', '64:ff9b::7f00:1', '64:ff9b:1::7f00:1', '2002:7f00:1::', 'localhost'])

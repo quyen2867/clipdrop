@@ -85,6 +85,7 @@ app.add_middleware(TrustedHostMiddleware, allowed_hosts=['127.0.0.1', 'localhost
 async def local_requests(request: Request, call_next):
     owner, cookie = policy.session_cookie(request.cookies.get(policy.COOKIE))
     request.state.owner = owner
+    request.state.owner_bypass = policy.owner_authorized(request.headers.get('x-owner-token'))
     if request.method == 'POST':
         origin = request.headers.get('origin')
         expected_origin = policy.ORIGIN if policy.PUBLIC else f'{request.url.scheme}://{request.headers.get("host")}'
@@ -100,7 +101,7 @@ async def local_requests(request: Request, call_next):
             length = -1
         if length < 0 or length > 4096:
             return JSONResponse({'detail': 'Yêu cầu phải có độ dài hợp lệ, tối đa 4 KB.'}, status_code=413)
-        if policy.PUBLIC:
+        if policy.PUBLIC and not request.state.owner_bypass:
             # Global limits cannot be bypassed by deleting cookies or spoofing IPs.
             # No client-supplied forwarded IP header is trusted for quota decisions.
             if not policy.rate_allowed('global-post', 20, 60) or not policy.rate_allowed(('post', owner), 12, 60):
@@ -190,7 +191,7 @@ def health():
 @app.post('/api/inspect')
 def inspect_video(body: InspectRequest, request: Request):
     cleanup()
-    if policy.PUBLIC and not policy.rate_allowed('inspect-hour', 60, 3600):
+    if policy.PUBLIC and not request.state.owner_bypass and not policy.rate_allowed('inspect-hour', 60, 3600):
         raise HTTPException(429, 'Bản miễn phí đã đạt giới hạn xem thông tin trong giờ này. Vui lòng quay lại sau.')
     if not inspect_slots.acquire(blocking=False):
         raise HTTPException(429, 'Đang xem thông tin video khác. Hãy thử lại sau vài giây.')
@@ -242,7 +243,7 @@ def start_download(body: DownloadRequest, request: Request):
             used = sum(file_sizes(DATA))
             if used + policy.MAX_JOB_BYTES > policy.MAX_STORAGE_BYTES or shutil.disk_usage(DATA).free < policy.MAX_JOB_BYTES + 256 * 1024**2:
                 raise HTTPException(503, 'Máy chủ đang thiếu dung lượng. File tạm sẽ được dọn tự động; hãy thử lại sau.')
-            if not policy.rate_allowed(('downloads', request.state.owner), 3, 3600) or not policy.rate_allowed('downloads-hour', 12, 3600):
+            if not request.state.owner_bypass and (not policy.rate_allowed(('downloads', request.state.owner), 3, 3600) or not policy.rate_allowed('downloads-hour', 12, 3600)):
                 raise HTTPException(429, 'Đã đạt giới hạn tải trong giờ này. Vui lòng quay lại sau.')
         if len(jobs) >= MAX_ITEMS:
             raise HTTPException(429, 'Đã đạt giới hạn phiên. File tạm tự xóa sau một giờ.')
@@ -287,7 +288,7 @@ def download_file(job_id: str, request: Request):
     path = DATA / job_id / job['result']['path']
     if not path.is_file():
         raise HTTPException(410, 'File đã hết hạn. Hãy tạo lượt tải mới.')
-    if policy.PUBLIC and not policy.reserve_transfer(path.stat().st_size):
+    if policy.PUBLIC and not request.state.owner_bypass and not policy.reserve_transfer(path.stat().st_size):
         raise HTTPException(429, 'Bản thử nghiệm đã đạt giới hạn gửi file hôm nay. Vui lòng quay lại sau.')
     title = re.sub(r'[^\w\s.()\-]', '', job['result']['title'], flags=re.UNICODE).strip()[:120] or 'video'
     return FileResponse(path, filename=f"{title}.{job['result']['ext']}", media_type='application/octet-stream')
