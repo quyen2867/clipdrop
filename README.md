@@ -88,5 +88,3 @@ python -m pytest -q
 Test tự động dùng metadata/worker giả để kiểm tra DRM, giới hạn truy cập, thiếu FFmpeg, ID định dạng, download attachment, expiry, quota, timeout và host/origin mà không phụ thuộc mạng. Test này không thay thế kiểm tra tải thực tế từ từng website.
 
 Đã kiểm tra trên Mac: 48 test tự động, bao gồm chặn kết nối mạng nội bộ sau DNS, cookie và phân tách file giữa hai phiên, quota gửi file đồng thời và hàng đợi. Bản local trước đó đã tải thật Sintel trailer thành MP4 (H.264 + AAC) và MP3, ghép hai luồng bằng FFmpeg, kiểm tra giao diện tại chiều rộng 319 px và 1280 px. Khả năng tải từng nguồn vẫn tùy điều kiện truy cập hiện tại.
-
-Tài liệu nguồn: [yt-dlp và Python embedding](https://github.com/yt-dlp/yt-dlp#embedding-yt-dlp), [JavaScript runtime của yt-dlp](https://github.com/yt-dlp/yt-dlp/wiki/EJS), [FastAPI](https://fastapi.tiangolo.com/), [FFmpeg](https://ffmpeg.org/).
