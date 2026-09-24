@@ -75,7 +75,7 @@ if __name__ == '__main__':
     try:
         result = dict(ok=True, data=run(json.loads(sys.stdin.read())))
     except Exception as exc:
-        print(f"worker raw error: {type(exc).__name__}: {exc}", file=sys.stderr, flush=True)
+        print(f"raw error: {type(exc).__name__}: {exc}", file=sys.stderr, flush=True)
         result = dict(ok=False, error=user_error(exc))
     # yt-dlp/ffmpeg may print other output, so parent reads the final JSON line.
     print(json.dumps(result, ensure_ascii=False), flush=True)
