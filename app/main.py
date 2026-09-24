@@ -139,6 +139,7 @@ def worker(payload, timeout):
         directory = Path(payload['directory']) if 'directory' in payload else None
         deadline = time.monotonic() + timeout
         message = json.dumps(payload)
+        stderr = ''
         while True:
             if directory:
                 sizes = file_sizes(directory)
@@ -152,7 +153,7 @@ def worker(payload, timeout):
             if remaining <= 0:
                 raise subprocess.TimeoutExpired('worker', timeout)
             try:
-                stdout, _ = proc.communicate(message, timeout=min(1, remaining) if directory else remaining)
+                stdout, stderr = proc.communicate(message, timeout=min(1, remaining) if directory else remaining)
                 break
             except subprocess.TimeoutExpired:
                 message = None
@@ -177,6 +178,8 @@ def worker(payload, timeout):
     except (ValueError, IndexError):
         raise RuntimeError('Tiến trình xử lý đã dừng. Hãy thử lại.')
     if not result['ok']:
+        if stderr and stderr.strip():
+            print(f"worker raw error: {stderr.strip()[-2000:]}", file=sys.stderr, flush=True)
         raise RuntimeError(result['error'])
     return result['data']
 
