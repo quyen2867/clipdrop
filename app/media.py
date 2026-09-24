@@ -172,6 +172,10 @@ def user_error(exc):
         return 'Video có DRM. Ứng dụng không hỗ trợ tải nội dung được bảo vệ.'
     if any(s in message for s in ('private', 'sign in', 'login', 'members', 'premium', '403', '401', 'age-restricted')):
         return 'Nguồn yêu cầu đăng nhập hoặc đang chặn truy cập. Ứng dụng không vượt qua hạn chế này.'
+    if any(s in message for s in ('429', 'too many requests', 'temporarily blocked', 'rate-limit')):
+        return 'Nguồn đang giới hạn IP của máy chủ (quá nhiều yêu cầu từ datacenter). Hãy thử lại sau hoặc dùng bản local.'
+    if any(s in message for s in ('bot', 'captcha', 'player response', 'player_response', 'failed to extract')):
+        return 'Nguồn đang chặn bot từ IP máy chủ. Hãy thử link khác hoặc dùng bản local tại nhà.'
     if 'unsupported url' in message:
         return 'Link này chưa được yt-dlp hỗ trợ. Hãy thử link trực tiếp của một video.'
     return 'Không thể đọc hoặc tải video từ nguồn này. Kiểm tra link, mạng và phiên bản yt-dlp rồi thử lại.'
