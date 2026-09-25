@@ -1,5 +1,5 @@
 FROM node:22-bookworm-slim AS javascript
-FROM python:3.12-slim-bookworm
+FROM python:3.14-slim-trixie
 
 ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 PIP_NO_CACHE_DIR=1
 RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg ca-certificates \

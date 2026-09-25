@@ -58,7 +58,7 @@ ffprobe -version
 deno --version
 ```
 
-Khởi động lại sau cập nhật. Nếu nhận “định dạng đã thay đổi”, xem thông tin video lại. Nếu phiên hết hạn hoặc backend vừa khởi động lại, tải lại trang và nhập link lại. `requirements-lock.txt` ghim các gói Python, bao gồm công cụ test; Docker dùng Python 3.12. Khi cập nhật yt-dlp cho bản Docker, cập nhật cả lock và yt-dlp-ejs tương ứng rồi kiểm thử lại.
+Khởi động lại sau cập nhật. Nếu nhận “định dạng đã thay đổi”, xem thông tin video lại. Nếu phiên hết hạn hoặc backend vừa khởi động lại, tải lại trang và nhập link lại. `requirements-lock.txt` ghim các gói Python, bao gồm công cụ test; Docker dùng Python 3.14 trên Debian Trixie. Môi trường này đã kiểm tra tải TikTok công khai; khả năng truy cập vẫn tùy nguồn và mạng của máy chủ. Khi cập nhật yt-dlp cho bản Docker, cập nhật cả lock và yt-dlp-ejs tương ứng rồi kiểm thử lại.
 
 ## Cấu trúc
 
