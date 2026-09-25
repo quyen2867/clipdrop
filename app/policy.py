@@ -86,6 +86,15 @@ if not COOKIE_FILE:
         if os.path.isfile(candidate):
             COOKIE_FILE = candidate
             break
+if COOKIE_FILE and os.path.isfile(COOKIE_FILE) and not COOKIE_FILE.startswith('/tmp/'):
+    _tmp_cookies = Path('/tmp/clipdrop_cookies.txt')
+    try:
+        import shutil
+        shutil.copyfile(COOKIE_FILE, _tmp_cookies)
+        _tmp_cookies.chmod(0o644)
+        COOKIE_FILE = str(_tmp_cookies)
+    except OSError:
+        pass
 _raw_cookies = (os.getenv('CLIPDROP_COOKIES', '') or os.getenv('YOUTUBE_COOKIES', '')).strip()
 if _raw_cookies and not COOKIE_FILE:
     import base64
