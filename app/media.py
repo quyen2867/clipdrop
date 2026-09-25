@@ -295,4 +295,5 @@ def user_error(exc):
         return 'Link này chưa được yt-dlp hỗ trợ. Hãy thử link trực tiếp của một video.'
     if any(s in message for s in ('không phản hồi sau', 'hết ngân sách thời gian thử client', 'timed out', 'timeout')):
         return 'Máy chủ không lấy kịp dữ liệu từ nguồn (nguồn phản hồi chậm hoặc chặn IP datacenter). Hãy thử lại sau ít phút.'
-    return 'Không thể đọc hoặc tải video từ nguồn này. Kiểm tra link, mạng và phiên bản yt-dlp rồi thử lại.'
+    detail = str(exc).strip().splitlines()[-1] if str(exc).strip() else ''
+    return f'Không thể đọc hoặc tải video từ nguồn này. ({detail[-120:] if detail else "Lỗi không xác định"})'
