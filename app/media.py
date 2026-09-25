@@ -243,7 +243,8 @@ def user_error(exc):
         return 'Nguồn yêu cầu đăng nhập hoặc đang chặn truy cập. Ứng dụng không vượt qua hạn chế này.'
     if any(s in message for s in ('429', 'too many requests', 'temporarily blocked', 'rate-limit')):
         return 'Nguồn đang giới hạn IP của máy chủ (quá nhiều yêu cầu từ datacenter). Hãy thử lại sau hoặc dùng bản local.'
-    if any(s in message for s in ('bot', 'captcha', 'player response', 'player_response', 'failed to extract')):
+    if any(s in message for s in ('bot', 'captcha', 'player response', 'player_response', 'failed to extract',
+                                  'no video formats', 'needs to be reloaded')):
         return 'Nguồn đang chặn bot từ IP máy chủ. Hãy thử link khác hoặc dùng bản local tại nhà.'
     if 'unsupported url' in message:
         return 'Link này chưa được yt-dlp hỗ trợ. Hãy thử link trực tiếp của một video.'

@@ -244,6 +244,13 @@ def test_extract_reports_every_attempt_failure(monkeypatch):
     assert len(seen) == 2
 
 
+def test_user_error_explains_youtube_client_refusals():
+    assert media.user_error(ValueError('No video formats found!')).startswith('Nguồn đang chặn bot')
+    assert media.user_error(ValueError('The page needs to be reloaded.')).startswith('Nguồn đang chặn bot')
+    assert media.user_error(ValueError('Sign in to confirm you are not a bot.')).startswith('Nguồn yêu cầu đăng nhập')
+    assert media.user_error(ValueError('unsupported URL')).startswith('Link này chưa được yt-dlp hỗ trợ')
+
+
 def test_slow_chain_stops_opening_new_profiles(monkeypatch):
     monkeypatch.setattr(policy, 'POT_URL', 'http://127.0.0.1:4416')
     monkeypatch.delenv('CLIPDROP_YOUTUBE_CLIENTS', raising=False)
