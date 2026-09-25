@@ -7,6 +7,7 @@ import re
 import shutil
 import socket
 import subprocess
+import time
 from urllib.parse import urlsplit
 
 import yt_dlp
@@ -79,6 +80,14 @@ def po_token_options(clients=None):
         clients = youtube_client_chain()[0]
     return {'youtube': {'player_client': list(clients)},
             'youtubepot-bgutilhttp': {'base_url': [policy.POT_URL]}}
+
+
+def client_label(config):
+    """Player clients of one extraction attempt, for error text and logs."""
+    return ','.join((config.get('extractor_args') or {}).get('youtube', {}).get('player_client', [])) or 'default'
+
+
+ATTEMPT_BUDGET_SECONDS = 40  # keep a multi-client YouTube chain inside the 90s inspect timeout
 
 
 def extraction_attempts(url):
@@ -185,9 +194,16 @@ def choices_for(info, ffmpeg):
 
 def extract(url):
     validate_url(url)
+    attempts = extraction_attempts(url)
     failures = []
-    for attempt, config in enumerate(extraction_attempts(url), start=1):
-        label = ','.join((config.get('extractor_args') or {}).get('youtube', {}).get('player_client', [])) or 'default'
+    # Render Free has 0.1 CPU, so a slow profile must not eat the whole 90s
+    # inspect timeout: stop opening new ones and report the reasons instead.
+    deadline = time.monotonic() + ATTEMPT_BUDGET_SECONDS if len(attempts) > 1 else None
+    for attempt, config in enumerate(attempts, start=1):
+        label = client_label(config)
+        if deadline and attempt > 1 and time.monotonic() > deadline:
+            failures.append(f'attempt {attempt}: [{label}] skipped: hết ngân sách thời gian thử client')
+            continue
         try:
             with yt_dlp.YoutubeDL(config) as ydl:
                 info = ydl.extract_info(url, download=False)

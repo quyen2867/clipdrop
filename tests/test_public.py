@@ -244,6 +244,28 @@ def test_extract_reports_every_attempt_failure(monkeypatch):
     assert len(seen) == 2
 
 
+def test_slow_chain_stops_opening_new_profiles(monkeypatch):
+    monkeypatch.setattr(policy, 'POT_URL', 'http://127.0.0.1:4416')
+    monkeypatch.delenv('CLIPDROP_YOUTUBE_CLIENTS', raising=False)
+    monkeypatch.setattr(media, 'ATTEMPT_BUDGET_SECONDS', -1)
+    seen = []
+
+    class FakeYoutubeDL:
+        def __init__(self, config): seen.append(config)
+        def __enter__(self): return self
+        def __exit__(self, *_exc): return False
+        def extract_info(self, _url, download=False):
+            raise media.yt_dlp.utils.DownloadError('refused')
+
+    monkeypatch.setattr(media.yt_dlp, 'YoutubeDL', FakeYoutubeDL)
+    with pytest.raises(media.yt_dlp.utils.YoutubeDLError) as excinfo:
+        media.extract('https://www.youtube.com/watch?v=x')
+    message = str(excinfo.value)
+    assert len(seen) == 1  # the budget was spent, so later profiles were skipped
+    assert message.count('skipped') == 3
+    assert '[mweb]' in message and '[android_vr]' in message and '[default]' in message
+
+
 def test_youtube_client_chain_orders_profiles(monkeypatch):
     monkeypatch.setattr(policy, 'POT_URL', 'http://127.0.0.1:4416')
     monkeypatch.delenv('CLIPDROP_YOUTUBE_CLIENTS', raising=False)
