@@ -81,6 +81,11 @@ PROXY_URL = os.getenv('CLIPDROP_PROXY', '') or os.getenv('HTTPS_PROXY', '') or o
 PROXY_TARGET, PROXY_IPS = proxy_target(PROXY_URL)
 
 COOKIE_FILE = os.getenv('CLIPDROP_COOKIE_FILE', '')
+if not COOKIE_FILE:
+    for candidate in ('/etc/secrets/cookies.txt', '/etc/secrets/clipdrop_cookies.txt', '/etc/secrets/youtube_cookies.txt', 'cookies.txt'):
+        if os.path.isfile(candidate):
+            COOKIE_FILE = candidate
+            break
 _raw_cookies = (os.getenv('CLIPDROP_COOKIES', '') or os.getenv('YOUTUBE_COOKIES', '')).strip()
 if _raw_cookies and not COOKIE_FILE:
     import base64
