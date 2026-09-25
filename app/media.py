@@ -44,14 +44,25 @@ def ffmpeg_available():
 
 @lru_cache(maxsize=1)
 def js_runtimes():
+    # yt-dlp only enables deno by default; node must be passed explicitly.
+    # The Docker image ships node at /usr/local/bin/node (Render health shows
+    # js_runtime: node), but PATH may not contain it in the worker process, so
+    # probe well-known locations too. Without a runtime the n-challenge fails
+    # and every player client returns an empty response ("Failed to extract
+    # any player response").
+    candidates = []
     for name, minimum in [('deno', (2, 3, 0)), ('node', (22, 0, 0))]:
-        if not shutil.which(name):
-            continue
+        paths = [shutil.which(name)]
+        if name == 'node':
+            paths += ['/usr/local/bin/node', '/opt/homebrew/bin/node', '/opt/bgutil/node']
+        for path in dict.fromkeys(p for p in paths if p):
+            candidates.append((name, minimum, path))
+    for name, minimum, path in candidates:
         try:
-            version = subprocess.run([name, '--version'], capture_output=True, text=True, timeout=3)
+            version = subprocess.run([path, '--version'], capture_output=True, text=True, timeout=3)
             match = re.search(r'(\d+)\.(\d+)\.(\d+)', version.stdout)
             if version.returncode == 0 and match and tuple(map(int, match.groups())) >= minimum:
-                return {name: {}}
+                return {name: {'path': path}} if path != shutil.which(name) else {name: {}}
         except (OSError, subprocess.TimeoutExpired):
             continue
     return {}
@@ -71,15 +82,17 @@ def youtube_client_chain():
     if override:
         return [tuple(override)]
     # Datacenter IPs are refused differently per client, so several profiles are
-    # tried: android_vr needs no PO token, mweb takes a GVS token, tv a player
-    # token. Measured in a container limited to 0.1 CPU: the token-free profile
-    # answers in ~4s while mweb needs ~35s, and the live free-plan service spent
-    # 44s without any token profile answering. The token-free profile therefore
-    # goes first on the hosted demo, with the richer token profiles as fallbacks;
-    # local runs have CPU to spare and keep the token profiles first.
+    # tried: android_vr and web_embedded need no GVS PO token (embedded is the
+    # only client with GVS not_required in yt-dlp 2026.8.19), mweb takes a GVS
+    # token, tv a player token. Measured in a container limited to 0.1 CPU:
+    # the token-free profiles answer in seconds while mweb needs ~35s, and the
+    # live free-plan service spent 44s without any token profile answering.
+    # The token-free profiles therefore go first on the hosted demo, with the
+    # richer token profiles as fallbacks; local runs have CPU to spare and
+    # keep the token profiles first.
     if policy.PUBLIC:
-        return [('android_vr',), ('mweb',), ('tv',)]
-    return [('mweb',), ('tv',), ('android_vr',)]
+        return [('android_vr',), ('web_embedded',), ('mweb',), ('tv',)]
+    return [('mweb',), ('tv',), ('android_vr',), ('web_embedded',)]
 
 
 def po_token_options(clients=None):
@@ -280,6 +293,11 @@ def user_error(exc):
         return 'Video có DRM. Ứng dụng không hỗ trợ tải nội dung được bảo vệ.'
     if any(s in message for s in ('private', 'sign in', 'login', 'members', 'premium', '403', '401', 'age-restricted')):
         return 'Nguồn yêu cầu đăng nhập hoặc đang chặn truy cập. Ứng dụng không vượt qua hạn chế này.'
+    if 'failed to extract any player response' in message:
+        # Seen on datacenter IPs when Innertube answers every player client
+        # with an empty JSON: the IP is refused before any login/token logic.
+        return ('YouTube đang chặn IP của máy chủ (không trả dữ liệu cho bất kỳ client nào). '
+                'Hãy thử lại sau ít phút, đổi region deploy, hoặc dùng bản local tại nhà.')
     if any(s in message for s in ('429', 'too many requests', 'temporarily blocked', 'rate-limit')):
         return 'Nguồn đang giới hạn IP của máy chủ (quá nhiều yêu cầu từ datacenter). Hãy thử lại sau hoặc dùng bản local.'
     if any(s in message for s in ('bot', 'captcha', 'player response', 'player_response', 'failed to extract',
