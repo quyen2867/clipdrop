@@ -166,3 +166,47 @@ def test_storage_guard_kills_worker(public_client, monkeypatch, tmp_path):
     with pytest.raises(RuntimeError, match='dung lượng'):
         main.worker(dict(directory=str(tmp_path)), 1)
     assert killed == [(999, main.signal.SIGKILL)]
+
+
+def test_pot_target_requires_loopback_http():
+    assert policy.loopback_target('http://127.0.0.1:4416') == ('127.0.0.1', 4416)
+    assert policy.loopback_target('http://[::1]:4416') == ('::1', 4416)
+    for url in ['', 'http://0.0.0.0:4416', 'https://127.0.0.1:4416', 'http://127.0.0.1',
+                'http://pot.internal:4416', 'http://localhost:4416']:
+        assert policy.loopback_target(url) is None
+
+
+def test_network_guard_allows_only_the_configured_pot_port(monkeypatch):
+    monkeypatch.setattr(policy, 'POT_TARGET', ('127.0.0.1', 4416))
+    policy.network_audit('socket.connect', (None, ('127.0.0.1', 4416)))
+    for target in [('127.0.0.1', 4417), ('127.0.0.2', 4416), ('8.8.8.8', 4416), ('::1', 4416)]:
+        with pytest.raises(PermissionError):
+            policy.network_audit('socket.connect', (None, target))
+
+
+def test_youtube_attempts_use_pot_provider_then_fall_back(monkeypatch):
+    monkeypatch.setattr(policy, 'POT_URL', 'http://127.0.0.1:4416')
+    monkeypatch.setenv('CLIPDROP_YOUTUBE_CLIENTS', 'mweb')
+    attempts = media.extraction_attempts('https://www.youtube.com/watch?v=x')
+    assert attempts[0]['extractor_args'] == {
+        'youtube': {'player_client': ['mweb']},
+        'youtubepot-bgutilhttp': {'base_url': ['http://127.0.0.1:4416']}}
+    assert 'extractor_args' not in attempts[1]
+    assert len(media.extraction_attempts('https://youtu.be/x')) == 2
+    assert len(media.extraction_attempts('https://www.tiktok.com/@a/video/1')) == 1
+    monkeypatch.setattr(policy, 'POT_URL', '')
+    assert len(media.extraction_attempts('https://www.youtube.com/watch?v=x')) == 1
+
+
+def test_health_reports_pot_state(public_client, monkeypatch):
+    monkeypatch.setattr(policy, 'POT_URL', 'http://127.0.0.1:4416')
+    assert public_client.get('/api/health').json()['pot'] is True
+    monkeypatch.setattr(policy, 'POT_URL', '')
+    assert public_client.get('/api/health').json()['pot'] is False
+
+
+def test_check_configuration_rejects_remote_pot_url(monkeypatch):
+    monkeypatch.setattr(policy, 'POT_URL', 'http://pot.example:4416')
+    monkeypatch.setattr(policy, 'POT_TARGET', None)
+    with pytest.raises(RuntimeError, match='loopback'):
+        policy.check_configuration()

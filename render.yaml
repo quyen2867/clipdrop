@@ -14,3 +14,5 @@ services:
         generateValue: true
       - key: CLIPDROP_OWNER_TOKEN
         sync: false
+      - key: CLIPDROP_POT_URL
+        value: http://127.0.0.1:4416

@@ -2,7 +2,7 @@
 
 ## Cấu hình có sẵn
 
-`render.yaml` tạo **một Web Service với `plan: free`** ở Singapore. Docker cài Python, FFmpeg/ffprobe và Node cho yt-dlp. Không cần database, disk trả phí, cron hay worker riêng. Render cấp HTTPS và tên miền `*.onrender.com`.
+`render.yaml` tạo **một Web Service với `plan: free`** ở Singapore. Docker cài Python, FFmpeg/ffprobe, Node cho yt-dlp, một PO token provider (bgutil) chạy loopback cho YouTube, và FFmpeg wrapper chỉ đọc file local. Không cần database, disk trả phí, cron hay worker riêng. Render cấp HTTPS và tên miền `*.onrender.com`.
 
 Đây là bản thử nghiệm có hạn mức cho nhiều người ghé dùng lần lượt. Free chỉ có 0.1 CPU / 512 MB RAM theo tài liệu Render tại thời điểm chuẩn bị; không bảo đảm tải đồng thời nhiều người hoặc hoạt động ổn định 24/7.
 
@@ -12,7 +12,7 @@
 2. Chọn **New → Blueprint**, kết nối GitHub và chọn repo `clipdrop` chứa mã nguồn này. Nếu Render cần quyền truy cập GitHub, chỉ cấp cho repo này.
 3. Render đọc `render.yaml`. Kiểm tra danh sách chỉ có **Clipdrop – Web Service – Free** và chi phí **$0**. Không chọn database hoặc nâng cấp.
 4. Bấm **Deploy Blueprint**. Render tự tạo `CLIPDROP_SESSION_SECRET`; không chia sẻ giá trị này.
-5. Chờ trạng thái **Live**, mở URL do Render cấp. Kiểm tra `/api/health`: `public: true`, `ffmpeg: true`, `js_runtime: node`, `max_file_mb: 50`.
+5. Chờ trạng thái **Live**, mở URL do Render cấp. Kiểm tra `/api/health`: `public: true`, `ffmpeg: true`, `js_runtime: node`, `pot: true`, `max_file_mb: 50`.
 6. Thử một video ngắn công khai mà bạn có quyền tải. Chỉ chia sẻ URL sau khi kiểm tra đọc thông tin và nhận file thực tế trên chính máy chủ Render.
 
 Không nhập thẻ/phương thức thanh toán nếu mục tiêu là **không phát sinh phí**. Render có thể yêu cầu xác minh tài khoản tùy trường hợp; nếu không có lựa chọn miễn phí phù hợp, dừng tại đó. Khi không có phương thức thanh toán, tài liệu Render nói dịch vụ bị tạm dừng thay vì tính phí vượt hạn mức. Đã có phương thức thanh toán trong tài khoản thì không được xem cấu hình `plan: free` là bảo đảm không phát sinh phí băng thông.
@@ -42,11 +42,21 @@ MB trên giao diện tính theo 1024² byte. Hạn mức gửi file rất thấp
 
 - Chỉ hostname chính xác của dịch vụ được chấp nhận; `RENDER_EXTERNAL_HOSTNAME` do Render cung cấp. POST kiểm tra Origin; không bật CORS; JSON tối đa 4 KB. Không tin header IP chuyển tiếp để quyết định quota.
 - Cookie phiên ký HMAC, Secure/HttpOnly/SameSite. Thông tin video, trạng thái và file chỉ trả cho phiên tạo chúng. Đây là phiên ẩn danh, không phải đăng nhập tài khoản.
-- Tiến trình yt-dlp kiểm tra **địa chỉ IP thực tế ở sự kiện socket.connect**, từ chối mạng nội bộ/link-local/multicast, IPv4-mapped/NAT64 phổ biến và cổng ngoài 80/443. Việc này cũng áp dụng redirect/URL nhúng qua Python transports. Thử nghiệm gồm DNS rebinding về loopback.
-- Docker dùng bản phụ thuộc ghim, không cài curl-cffi hoặc downloader mạng ngoài; HLS/DASH dùng downloader native. FFmpeg/ffprobe qua wrapper chỉ cho `file,pipe`; Node chỉ dùng solver đi kèm yt-dlp-ejs, không bật tải remote components. Secret ký phiên không được truyền cho tiến trình tải.
+- Tiến trình yt-dlp kiểm tra **địa chỉ IP thực tế ở sự kiện socket.connect**, từ chối mạng nội bộ/link-local/multicast, IPv4-mapped/NAT64 phổ biến và cổng ngoài 80/443. Việc này cũng áp dụng redirect/URL nhúng qua Python transports. Thử nghiệm gồm DNS rebinding về loopback. Ngoại lệ duy nhất là đúng một cặp host:port loopback khai báo trong `CLIPDROP_POT_URL` (provider PO token đi kèm); để biến này trống thì không còn ngoại lệ nào.
+- Docker dùng bản phụ thuộc ghim, không cài curl-cffi hoặc downloader mạng ngoài; HLS/DASH dùng downloader native. FFmpeg/ffprobe qua wrapper chỉ cho `file,pipe`; Node chỉ dùng solver đi kèm yt-dlp-ejs, không bật tải remote components. Plugin `bgutil-ytdlp-pot-provider` được ghim trong lock và lấy từ chính package cài sẵn, không tải script lúc chạy. Secret ký phiên không được truyền cho tiến trình tải.
 - Chạy non-root, giới hạn kích thước file bằng OS trong worker public, theo dõi đĩa, dừng nhóm tiến trình khi timeout. Không nhận đường dẫn, selector, cookie nguồn hay tùy chọn dòng lệnh từ client.
 
 Các lớp này giảm rủi ro của bản demo, **không thay thế firewall egress/container sandbox và rà soát bảo mật cho dịch vụ lớn**. Không thêm downloader/plugin hoặc nới protocol FFmpeg mà chưa kiểm tra lại. Chế độ public chỉ chạy bằng Dockerfile đi kèm để bảo đảm có wrappers.
+
+## YouTube, PO token và IP datacenter
+
+YouTube chấm điểm IP datacenter (Render, AWS/GCP) là bot và có thể trả “Sign in to confirm you're not a bot” hoặc không trả player response, trong khi TikTok/Facebook vẫn tải được. Cách xử lý đã có trong repo:
+
+- Image Docker chạy kèm **bgutil PO token provider** (`brainicism/bgutil-ytdlp-pot-provider:2.0.0`) trên `127.0.0.1:4416`; `deploy/start.sh` khởi động nó trước uvicorn và chờ `/ping`. Provider chỉ nhận kết nối loopback nên không lộ ra Internet.
+- App gọi provider qua `CLIPDROP_POT_URL` (đã khai báo trong `render.yaml`) và thử client `mweb` cho YouTube trước, sau đó tự quay lại client mặc định nếu thất bại. `/api/health` báo `pot: true` khi đã bật.
+- Provider **không bảo đảm** vượt qua bot check: nó giúp traffic trông hợp lệ hơn, không phải thuốc chữa chắc chắn. Không dùng cookie tài khoản hay proxy trả phí cho bản demo.
+
+Nếu YouTube vẫn bị chặn: xem **Logs** và tìm dòng `worker raw error:` để đọc lỗi gốc của yt-dlp; thử lại sau vài giờ; hoặc tạo dịch vụ ở region khác (Render không đổi region tại chỗ, sẽ có URL mới). Cập nhật `yt-dlp` trong `requirements-lock.txt` rồi deploy lại khi YouTube thay đổi.
 
 ## Vận hành và giới hạn Render
 

@@ -1,6 +1,7 @@
 """yt-dlp integration; only public, unprotected, single videos."""
 import hashlib
 import ipaddress
+import os
 from functools import lru_cache
 import re
 import shutil
@@ -52,6 +53,39 @@ def js_runtimes():
         except (OSError, subprocess.TimeoutExpired):
             continue
     return {}
+
+
+YOUTUBE_DOMAINS = ('youtube.com', 'youtu.be', 'youtube-nocookie.com')
+
+
+def is_youtube(url):
+    host = (urlsplit(url).hostname or '').lower().rstrip('.')
+    return any(host == domain or host.endswith('.' + domain) for domain in YOUTUBE_DOMAINS)
+
+
+def youtube_clients():
+    clients = [name.strip() for name in os.getenv('CLIPDROP_YOUTUBE_CLIENTS', 'mweb').split(',') if name.strip()]
+    return clients or ['mweb']
+
+
+def po_token_options():
+    """Extractor args for the bundled PO token provider, when one is configured."""
+    if not policy.POT_URL:
+        return {}
+    return {'youtube': {'player_client': youtube_clients()},
+            'youtubepot-bgutilhttp': {'base_url': [policy.POT_URL]}}
+
+
+def extraction_attempts(url):
+    """YouTube first tries the PO token provider, then plain yt-dlp defaults."""
+    attempts = []
+    pot = po_token_options() if is_youtube(url) else {}
+    if pot:
+        config = options()
+        config['extractor_args'] = pot
+        attempts.append(config)
+    attempts.append(options())
+    return attempts
 
 
 class QuietLogger:
@@ -146,8 +180,16 @@ def choices_for(info, ffmpeg):
 
 def extract(url):
     validate_url(url)
-    with yt_dlp.YoutubeDL(options()) as ydl:
-        info = ydl.extract_info(url, download=False)
+    failure = None
+    for config in extraction_attempts(url):
+        try:
+            with yt_dlp.YoutubeDL(config) as ydl:
+                info = ydl.extract_info(url, download=False)
+            break
+        except yt_dlp.utils.YoutubeDLError as exc:
+            failure = exc
+    else:
+        raise failure
     guard(info)
     if policy.PUBLIC and not info.get('duration'):
         raise MediaError('Nguồn không cung cấp thời lượng. Bản miễn phí chưa hỗ trợ video này.')

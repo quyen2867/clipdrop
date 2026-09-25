@@ -187,6 +187,7 @@ def worker(payload, timeout):
 @app.get('/api/health')
 def health():
     return dict(ffmpeg=ffmpeg_available(), yt_dlp=yt_version, js_runtime=next(iter(js_runtimes()), None),
+                pot=bool(policy.POT_URL),
                 public=policy.PUBLIC, ttl_minutes=TTL // 60, max_file_mb=policy.MAX_FILE_BYTES // 1024**2,
                 max_duration_minutes=policy.MAX_DURATION // 60 if policy.MAX_DURATION else None)
 

@@ -30,6 +30,18 @@ _limits = defaultdict(deque)
 _lock = threading.Lock()
 _transfer = {'day': '', 'bytes': 0}
 COOKIE = 'clipdrop_session'
+POT_URL = os.getenv('CLIPDROP_POT_URL', '').strip()
+
+
+def loopback_target(url):
+    """(host, port) for a loopback-only http URL, or None when it is not loopback."""
+    parts = urlsplit(url)
+    if parts.scheme == 'http' and parts.hostname in ('127.0.0.1', '::1') and parts.port:
+        return parts.hostname, parts.port
+    return None
+
+
+POT_TARGET = loopback_target(POT_URL)
 
 
 def check_configuration():
@@ -37,6 +49,8 @@ def check_configuration():
         raise RuntimeError('Public mode requires a hostname and CLIPDROP_SESSION_SECRET (32+ characters).')
     if PUBLIC and not all(Path('/opt/media-tools', tool).is_file() for tool in ('ffmpeg', 'ffprobe')):
         raise RuntimeError('Public mode must use the supplied Docker image with restricted FFmpeg tools.')
+    if POT_URL and not POT_TARGET:
+        raise RuntimeError('CLIPDROP_POT_URL phải là URL loopback, ví dụ http://127.0.0.1:4416.')
 
 
 def session_cookie(value=None):
@@ -110,10 +124,16 @@ def network_audit(event, args):
     Installed only in worker processes. This covers redirects and media/manifest
     requests using yt-dlp's Python transports, including DNS rebinding to LAN.
     Docker FFmpeg wrappers separately restrict external tools to local inputs.
+    The bundled PO token provider is the only loopback target allowed, and only
+    for the exact host/port in CLIPDROP_POT_URL.
     """
     if event == 'socket.connect':
         _socket, address = args
-        if not isinstance(address, tuple) or len(address) < 2 or not public_address(address[0]) or address[1] not in (80, 443):
+        if not isinstance(address, tuple) or len(address) < 2:
+            raise PermissionError('Chỉ cho phép kết nối tới địa chỉ Internet công khai qua cổng 80/443.')
+        if POT_TARGET and (address[0], address[1]) == POT_TARGET:
+            return
+        if not public_address(address[0]) or address[1] not in (80, 443):
             raise PermissionError('Chỉ cho phép kết nối tới địa chỉ Internet công khai qua cổng 80/443.')
 
 

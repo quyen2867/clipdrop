@@ -1,3 +1,4 @@
 fastapi>=0.115,<1
 uvicorn>=0.30,<1
 yt-dlp[default]>=2026.8.19
+bgutil-ytdlp-pot-provider>=2.0.0,<3
