@@ -80,13 +80,17 @@ def youtube_client_chain():
 
 
 def po_token_options(clients=None):
-    """Extractor args for the bundled PO token provider, when one is configured."""
+    """Extractor args for player clients and optional PO token provider."""
     if not policy.POT_URL:
         return {}
     if clients is None:
         clients = youtube_client_chain()[0]
-    return {'youtube': {'player_client': list(clients)},
-            'youtubepot-bgutilhttp': {'base_url': [policy.POT_URL]}}
+    args = {'youtube': {'player_client': list(clients)}}
+    # visionos is token-free and must not stall on bgutil (which takes 35s+ on 0.1 CPU).
+    # Only token-dependent clients (e.g. mweb, tv) query the PO token provider.
+    if 'visionos' not in clients:
+        args['youtubepot-bgutilhttp'] = {'base_url': [policy.POT_URL]}
+    return args
 
 
 def client_label(config):
@@ -284,6 +288,8 @@ def user_error(exc):
     if any(s in message for s in ('bot', 'captcha', 'player response', 'player_response', 'failed to extract',
                                   'no video formats', 'needs to be reloaded')):
         return 'Nguồn đang chặn bot từ IP máy chủ. Hãy thử link khác hoặc dùng bản local tại nhà.'
+    if any(s in message for s in ('unavailable', 'not available', 'does not exist', 'has been removed', 'deleted')):
+        return 'Video này không tồn tại, đã bị xóa hoặc không khả dụng trên YouTube. Hãy thử kiểm tra lại đường link.'
     if 'unsupported url' in message:
         return 'Link này chưa được yt-dlp hỗ trợ. Hãy thử link trực tiếp của một video.'
     if any(s in message for s in ('không phản hồi sau', 'hết ngân sách thời gian thử client', 'timed out', 'timeout')):
