@@ -51,6 +51,9 @@ def run(request):
         return None
 
     config = options()
+    if info.get('_clipdrop_extractor_args'):
+        # Same client and PO token profile that produced these format URLs.
+        config['extractor_args'] = info['_clipdrop_extractor_args']
     config.update(format=selector, outtmpl=str(directory / 'media.%(ext)s'),
                   merge_output_format=choice['ext'], progress_hooks=[hook], match_filter=match_filter,
                   max_filesize=policy.MAX_FILE_BYTES, overwrites=False)

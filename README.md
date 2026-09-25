@@ -60,7 +60,7 @@ deno --version
 
 Khởi động lại sau cập nhật. Nếu nhận “định dạng đã thay đổi”, xem thông tin video lại. Nếu phiên hết hạn hoặc backend vừa khởi động lại, tải lại trang và nhập link lại. `requirements-lock.txt` ghim các gói Python, bao gồm công cụ test; Docker dùng Python 3.14 trên Debian Trixie. Môi trường này đã kiểm tra tải TikTok công khai; khả năng truy cập vẫn tùy nguồn và mạng của máy chủ. Khi cập nhật yt-dlp cho bản Docker, cập nhật cả lock và yt-dlp-ejs tương ứng rồi kiểm thử lại.
 
-Bản Docker khi chạy chế độ public khởi động kèm **PO token provider bgutil** chỉ nghe trên loopback. Với link YouTube, worker thử client `mweb` kèm PO token trước; nếu lỗi thì tự quay lại client mặc định của yt-dlp. Provider **tự bật** khi image có sẵn nó (loopback `http://127.0.0.1:4416`), không cần khai báo env; đặt `CLIPDROP_POT_URL=0` để tắt, hoặc đặt URL loopback khác để đổi địa chỉ. Đổi client bằng `CLIPDROP_YOUTUBE_CLIENTS`. Provider không làm thay đổi bản local: chỉ chạy trong image Docker của repo.
+Bản Docker khi chạy chế độ public khởi động kèm **PO token provider bgutil** chỉ nghe trên loopback. Với link YouTube, worker thử lần lượt `mweb` → `tv` → `android_vr` (kèm PO token) rồi mới quay về client mặc định của yt-dlp; profile thắng được ghi nhớ và **dùng lại cho cả bước tải**, vì URL media do client cần token trả về sẽ bị 403 nếu thiếu token. Provider **tự bật** khi image có sẵn nó (loopback `http://127.0.0.1:4416`), không cần khai báo env; đặt `CLIPDROP_POT_URL=0` để tắt, hoặc URL loopback khác để đổi địa chỉ. `CLIPDROP_YOUTUBE_CLIENTS` ép đúng danh sách client thay cho chuỗi mặc định (ví dụ `android_vr` để thử client không cần token). `/api/health` báo `pot_alive` (provider có thật sự trả lời `/ping`) kèm `memory_mb`, `memory_limit_mb`, `oom_kills` để phân biệt “YouTube từ chối” với “container hết RAM”. Provider không làm thay đổi bản local: chỉ chạy trong image Docker của repo.
 
 ## Cấu trúc
 
@@ -69,6 +69,7 @@ app/main.py          API, giới hạn tác vụ, file tải và dọn file tạ
 app/media.py         Kiểm tra URL, lọc DRM, tạo lựa chọn định dạng
 app/worker.py        Tiến trình yt-dlp/FFmpeg độc lập có timeout
 app/policy.py        Hạn mức public, cookie phiên và kiểm tra socket
+app/diagnostics.py   Ping provider PO token, đọc RAM/OOM từ cgroup cho /api/health
 app/static/          Giao diện HTML/CSS/JavaScript
 tests/test_app.py    Kiểm thử API và chính sách xử lý
 tests/test_public.py Kiểm thử bản public, quyền xem file và chặn mạng nội bộ
@@ -89,4 +90,4 @@ python -m pytest -q
 
 Test tự động dùng metadata/worker giả để kiểm tra DRM, giới hạn truy cập, thiếu FFmpeg, ID định dạng, download attachment, expiry, quota, timeout và host/origin mà không phụ thuộc mạng. Test này không thay thế kiểm tra tải thực tế từ từng website.
 
-Đã kiểm tra trên Mac: 48 test tự động, bao gồm chặn kết nối mạng nội bộ sau DNS, cookie và phân tách file giữa hai phiên, quota gửi file đồng thời và hàng đợi. Bản local trước đó đã tải thật Sintel trailer thành MP4 (H.264 + AAC) và MP3, ghép hai luồng bằng FFmpeg, kiểm tra giao diện tại chiều rộng 319 px và 1280 px. Khả năng tải từng nguồn vẫn tùy điều kiện truy cập hiện tại.
+Đã kiểm tra trên Mac: 62 test tự động, bao gồm chặn kết nối mạng nội bộ sau DNS, cookie và phân tách file giữa hai phiên, quota gửi file đồng thời và hàng đợi, chuỗi client YouTube kèm PO token, dùng lại profile khi tải, thăm dò provider và đọc RAM/OOM. Bản local trước đó đã tải thật Sintel trailer thành MP4 (H.264 + AAC) và MP3, ghép hai luồng bằng FFmpeg, kiểm tra giao diện tại chiều rộng 319 px và 1280 px. Khả năng tải từng nguồn vẫn tùy điều kiện truy cập hiện tại.

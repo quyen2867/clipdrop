@@ -9,7 +9,7 @@ from concurrent.futures import ThreadPoolExecutor
 from fastapi.testclient import TestClient
 import pytest
 
-from app import main, media, policy
+from app import diagnostics, main, media, policy
 
 
 @pytest.fixture
@@ -216,6 +216,7 @@ def test_youtube_attempts_use_pot_provider_then_fall_back(monkeypatch):
 
 def test_extract_reports_every_attempt_failure(monkeypatch):
     monkeypatch.setattr(policy, 'POT_URL', 'http://127.0.0.1:4416')
+    monkeypatch.setenv('CLIPDROP_YOUTUBE_CLIENTS', 'mweb')
     seen = []
 
     class FakeYoutubeDL:
@@ -237,16 +238,128 @@ def test_extract_reports_every_attempt_failure(monkeypatch):
         media.extract('https://www.youtube.com/watch?v=x')
     message = str(excinfo.value)
     assert 'attempt 1:' in message and 'attempt 2:' in message
+    assert '[mweb]' in message and '[default]' in message
     assert 'player response' in message and 'plain failure' in message
     assert media.user_error(excinfo.value).startswith('Nguồn đang chặn bot')
     assert len(seen) == 2
 
 
-def test_health_reports_pot_state(public_client, monkeypatch):
+def test_youtube_client_chain_orders_profiles(monkeypatch):
     monkeypatch.setattr(policy, 'POT_URL', 'http://127.0.0.1:4416')
-    assert public_client.get('/api/health').json()['pot'] is True
+    monkeypatch.delenv('CLIPDROP_YOUTUBE_CLIENTS', raising=False)
+    clients = [a['extractor_args']['youtube']['player_client']
+               for a in media.extraction_attempts('https://youtu.be/x') if 'extractor_args' in a]
+    assert clients == [['mweb'], ['tv'], ['android_vr']]
+    monkeypatch.setenv('CLIPDROP_YOUTUBE_CLIENTS', 'tv, mweb')
+    clients = [a['extractor_args']['youtube']['player_client']
+               for a in media.extraction_attempts('https://youtu.be/x') if 'extractor_args' in a]
+    assert clients == [['tv', 'mweb']]
+
+
+def test_extract_keeps_the_working_profile_for_download(monkeypatch):
+    monkeypatch.setattr(policy, 'POT_URL', 'http://127.0.0.1:4416')
+    monkeypatch.setenv('CLIPDROP_YOUTUBE_CLIENTS', 'tv')
+
+    class FakeYoutubeDL:
+        def __init__(self, _config): pass
+        def __enter__(self): return self
+        def __exit__(self, *_exc): return False
+        def extract_info(self, _url, download=False):
+            return dict(title='Test', availability='public', duration=10, formats=[])
+
+    monkeypatch.setattr(media.yt_dlp, 'YoutubeDL', FakeYoutubeDL)
+    info = media.extract('https://www.youtube.com/watch?v=x')
+    assert info['_clipdrop_extractor_args'] == media.po_token_options(('tv',))
+
+
+def test_worker_download_reuses_the_extracted_profile(monkeypatch, tmp_path):
+    from app import worker
+    formats = [dict(format_id='18', ext='mp4', vcodec='avc1', acodec='aac',
+                    url='https://example.com/video', protocol='https')]
+    info = dict(title='Test', availability='public', duration=5, formats=formats)
+    monkeypatch.setattr(policy, 'POT_URL', 'http://127.0.0.1:4416')
+    info['_clipdrop_extractor_args'] = media.po_token_options(('tv',))
+    seen = {}
+
+    class FakeYoutubeDL:
+        def __init__(self, config): seen.update(config)
+        def __enter__(self): return self
+        def __exit__(self, *_exc): return False
+        def extract_info(self, _url, download=True): (tmp_path / 'media.mp4').write_bytes(b'media')
+
+    monkeypatch.setattr(worker, 'extract', lambda _url: info)
+    monkeypatch.setattr(worker.yt_dlp, 'YoutubeDL', FakeYoutubeDL)
+    choice = media.choices_for(info, True)[0]
+    result = worker.run(dict(action='download', url='https://www.youtube.com/watch?v=x',
+                             format_id=choice['id'], directory=str(tmp_path)))
+    assert seen['extractor_args'] == info['_clipdrop_extractor_args']
+    assert result == dict(path='media.mp4', title='Test', ext='mp4')
+
+
+def test_pot_provider_probe_pings_and_caches(monkeypatch):
+    monkeypatch.setattr(policy, 'POT_URL', 'http://127.0.0.1:4416')
+    monkeypatch.setattr(policy, 'POT_TARGET', ('127.0.0.1', 4416))
+    calls = []
+
+    class Response:
+        status = 200
+        def read(self, _size=None): return b'{"server_uptime":1.5,"version":"2.0.0"}'
+        def __enter__(self): return self
+        def __exit__(self, *_exc): return False
+
+    def fake_urlopen(url, timeout=None):
+        calls.append((url, timeout))
+        return Response()
+
+    monkeypatch.setattr(diagnostics.urllib.request, 'urlopen', fake_urlopen)
+    diagnostics._pot.update(checked=0.0, alive=False)
+    assert diagnostics.pot_provider_alive(now=100.0) is True
+    assert calls == [('http://127.0.0.1:4416/ping', 2)]
+    assert diagnostics.pot_provider_alive(now=105.0) is True
+    assert len(calls) == 1  # cached, so Render health checks stay cheap
+    assert diagnostics.pot_provider_alive(now=200.0) is True
+    assert len(calls) == 2
+
+
+def test_pot_provider_probe_reports_dead_or_missing_provider(monkeypatch):
+    monkeypatch.setattr(policy, 'POT_URL', 'http://127.0.0.1:4416')
+    monkeypatch.setattr(policy, 'POT_TARGET', ('127.0.0.1', 4416))
+
+    def refused(*_args, **_kwargs):
+        raise OSError('connection refused')
+
+    monkeypatch.setattr(diagnostics.urllib.request, 'urlopen', refused)
+    diagnostics._pot.update(checked=0.0, alive=True)
+    assert diagnostics.pot_provider_alive(now=100.0) is False
+    wrong = type('Response', (), {'status': 200, 'read': lambda self, _size=None: b'<html>',
+                                  '__enter__': lambda self: self, '__exit__': lambda self, *a: False})()
+    monkeypatch.setattr(diagnostics.urllib.request, 'urlopen', lambda *a, **k: wrong)
+    assert diagnostics.pot_provider_alive(now=200.0) is False
+    monkeypatch.setattr(policy, 'POT_TARGET', None)
+    assert diagnostics.pot_provider_alive(now=300.0) is False
+
+
+def test_memory_usage_reads_cgroup_v2(tmp_path):
+    (tmp_path / 'memory.current').write_text(str(300 * 1024**2))
+    (tmp_path / 'memory.max').write_text(str(512 * 1024**2))
+    (tmp_path / 'memory.events').write_text('low 0\nhigh 3\nmax 0\noom 2\noom_kill 1\n')
+    assert diagnostics.memory_usage(root=tmp_path) == (300, 512, 1)
+    (tmp_path / 'memory.max').write_text('max')
+    assert diagnostics.memory_usage(root=tmp_path) == (300, None, 1)
+    assert diagnostics.memory_usage(root=tmp_path / 'absent') == (None, None, None)
+
+
+def test_health_reports_pot_and_memory_state(public_client, monkeypatch):
+    monkeypatch.setattr(policy, 'POT_URL', 'http://127.0.0.1:4416')
+    monkeypatch.setattr(main, 'pot_provider_alive', lambda: True)
+    monkeypatch.setattr(main, 'memory_usage', lambda: (300, 512, 1))
+    body = public_client.get('/api/health').json()
+    assert body['pot'] is True and body['pot_alive'] is True
+    assert (body['memory_mb'], body['memory_limit_mb'], body['oom_kills']) == (300, 512, 1)
     monkeypatch.setattr(policy, 'POT_URL', '')
-    assert public_client.get('/api/health').json()['pot'] is False
+    monkeypatch.setattr(main, 'pot_provider_alive', lambda: False)
+    body = public_client.get('/api/health').json()
+    assert body['pot'] is False and body['pot_alive'] is False
 
 
 def test_check_configuration_rejects_remote_pot_url(monkeypatch):

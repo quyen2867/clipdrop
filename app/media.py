@@ -63,27 +63,32 @@ def is_youtube(url):
     return any(host == domain or host.endswith('.' + domain) for domain in YOUTUBE_DOMAINS)
 
 
-def youtube_clients():
-    clients = [name.strip() for name in os.getenv('CLIPDROP_YOUTUBE_CLIENTS', 'mweb').split(',') if name.strip()]
-    return clients or ['mweb']
+def youtube_client_chain():
+    """Player-client profiles to try in order; CLIPDROP_YOUTUBE_CLIENTS forces one list."""
+    override = [name.strip() for name in os.getenv('CLIPDROP_YOUTUBE_CLIENTS', '').split(',') if name.strip()]
+    # Datacenter IPs are refused differently per client, so several profiles are
+    # tried: mweb takes a GVS token, tv a player token, android_vr none at all.
+    return [tuple(override)] if override else [('mweb',), ('tv',), ('android_vr',)]
 
 
-def po_token_options():
+def po_token_options(clients=None):
     """Extractor args for the bundled PO token provider, when one is configured."""
     if not policy.POT_URL:
         return {}
-    return {'youtube': {'player_client': youtube_clients()},
+    if clients is None:
+        clients = youtube_client_chain()[0]
+    return {'youtube': {'player_client': list(clients)},
             'youtubepot-bgutilhttp': {'base_url': [policy.POT_URL]}}
 
 
 def extraction_attempts(url):
-    """YouTube first tries the PO token provider, then plain yt-dlp defaults."""
+    """YouTube first tries each PO-token client profile, then plain yt-dlp defaults."""
     attempts = []
-    pot = po_token_options() if is_youtube(url) else {}
-    if pot:
-        config = options()
-        config['extractor_args'] = pot
-        attempts.append(config)
+    if is_youtube(url) and policy.POT_URL:
+        for clients in youtube_client_chain():
+            config = options()
+            config['extractor_args'] = po_token_options(clients)
+            attempts.append(config)
     attempts.append(options())
     return attempts
 
@@ -182,19 +187,23 @@ def extract(url):
     validate_url(url)
     failures = []
     for attempt, config in enumerate(extraction_attempts(url), start=1):
+        label = ','.join((config.get('extractor_args') or {}).get('youtube', {}).get('player_client', [])) or 'default'
         try:
             with yt_dlp.YoutubeDL(config) as ydl:
                 info = ydl.extract_info(url, download=False)
             break
         except yt_dlp.utils.YoutubeDLError as exc:
-            failures.append(f'attempt {attempt}: {str(exc).strip()[-300:]}')
+            failures.append(f'attempt {attempt}: [{label}] {str(exc).strip()[-300:]}')
     else:
-        # Keep every reason so logs show whether the PO token path or the
-        # plain yt-dlp path was the one the source refused.
+        # Keep every reason with its client label so Render Logs show which
+        # profile the source refused (PO token clients first, then plain yt-dlp).
         raise yt_dlp.utils.DownloadError(' | '.join(failures))
     guard(info)
     if policy.PUBLIC and not info.get('duration'):
         raise MediaError('Nguồn không cung cấp thời lượng. Bản miễn phí chưa hỗ trợ video này.')
+    # Remember which client/PO token profile worked so the download reuses it:
+    # media URLs handed out by a token client are refused without the same token.
+    info['_clipdrop_extractor_args'] = config.get('extractor_args')
     return info
 
 

@@ -12,7 +12,7 @@
 2. Chọn **New → Blueprint**, kết nối GitHub và chọn repo `clipdrop` chứa mã nguồn này. Nếu Render cần quyền truy cập GitHub, chỉ cấp cho repo này.
 3. Render đọc `render.yaml`. Kiểm tra danh sách chỉ có **Clipdrop – Web Service – Free** và chi phí **$0**. Không chọn database hoặc nâng cấp.
 4. Bấm **Deploy Blueprint**. Render tự tạo `CLIPDROP_SESSION_SECRET`; không chia sẻ giá trị này.
-5. Chờ trạng thái **Live**, mở URL do Render cấp. Kiểm tra `/api/health`: `public: true`, `ffmpeg: true`, `js_runtime: node`, `pot: true`, `max_file_mb: 50`.
+5. Chờ trạng thái **Live**, mở URL do Render cấp. Kiểm tra `/api/health`: `public: true`, `ffmpeg: true`, `js_runtime: node`, `pot: true`, `pot_alive: true`, `max_file_mb: 50`. Nếu `pot_alive: false` thì provider PO token đã chết (thường do hết RAM); xem thêm `memory_mb`, `memory_limit_mb`, `oom_kills` trong cùng phản hồi.
 6. Thử một video ngắn công khai mà bạn có quyền tải. Chỉ chia sẻ URL sau khi kiểm tra đọc thông tin và nhận file thực tế trên chính máy chủ Render.
 
 Không nhập thẻ/phương thức thanh toán nếu mục tiêu là **không phát sinh phí**. Render có thể yêu cầu xác minh tài khoản tùy trường hợp; nếu không có lựa chọn miễn phí phù hợp, dừng tại đó. Khi không có phương thức thanh toán, tài liệu Render nói dịch vụ bị tạm dừng thay vì tính phí vượt hạn mức. Đã có phương thức thanh toán trong tài khoản thì không được xem cấu hình `plan: free` là bảo đảm không phát sinh phí băng thông.
@@ -40,7 +40,7 @@ MB trên giao diện tính theo 1024² byte. Hạn mức gửi file rất thấp
 
 ## Bảo vệ có sẵn
 
-- Chỉ hostname chính xác của dịch vụ được chấp nhận; `RENDER_EXTERNAL_HOSTNAME` do Render cung cấp. POST kiểm tra Origin; không bật CORS; JSON tối đa 4 KB. Không tin header IP chuyển tiếp để quyết định quota.
+- Chỉ hostname chính xác của dịch vụ được chấp nhận; `RENDER_EXTERNAL_HOSTNAME` do Render cung cấp. POST kiểm tra Origin; không bật CORS; JSON tối đa 4 KB. Không tin header IP chuyển tiếp để quyết định quota. `/api/health` chỉ trả trạng thái công cụ, RAM và số lần OOM, không lộ secret hay đường dẫn.
 - Cookie phiên ký HMAC, Secure/HttpOnly/SameSite. Thông tin video, trạng thái và file chỉ trả cho phiên tạo chúng. Đây là phiên ẩn danh, không phải đăng nhập tài khoản.
 - Tiến trình yt-dlp kiểm tra **địa chỉ IP thực tế ở sự kiện socket.connect**, từ chối mạng nội bộ/link-local/multicast, IPv4-mapped/NAT64 phổ biến và cổng ngoài 80/443. Việc này cũng áp dụng redirect/URL nhúng qua Python transports. Thử nghiệm gồm DNS rebinding về loopback. Ngoại lệ duy nhất là đúng một cặp host:port loopback khai báo trong `CLIPDROP_POT_URL` (provider PO token đi kèm); để biến này trống thì không còn ngoại lệ nào.
 - Docker dùng bản phụ thuộc ghim, không cài curl-cffi hoặc downloader mạng ngoài; HLS/DASH dùng downloader native. FFmpeg/ffprobe qua wrapper chỉ cho `file,pipe`; Node chỉ dùng solver đi kèm yt-dlp-ejs, không bật tải remote components. Plugin `bgutil-ytdlp-pot-provider` được ghim trong lock và lấy từ chính package cài sẵn, không tải script lúc chạy. Secret ký phiên không được truyền cho tiến trình tải.
@@ -53,8 +53,15 @@ Các lớp này giảm rủi ro của bản demo, **không thay thế firewall e
 YouTube chấm điểm IP datacenter (Render, AWS/GCP) là bot và có thể trả “Sign in to confirm you're not a bot” hoặc không trả player response, trong khi TikTok/Facebook vẫn tải được. Cách xử lý đã có trong repo:
 
 - Image Docker chạy kèm **bgutil PO token provider** (`brainicism/bgutil-ytdlp-pot-provider:2.0.0`) trên `127.0.0.1:4416`; `deploy/start.sh` khởi động nó trước uvicorn và chờ `/ping`. Provider chỉ nhận kết nối loopback nên không lộ ra Internet.
-- Provider **tự bật khi image có sẵn nó**, không phụ thuộc env: `/api/health` báo `pot: true` là đang bật. Đặt `CLIPDROP_POT_URL=0` để tắt (ví dụ khi container thiếu RAM), hoặc đặt một URL loopback khác để đổi địa chỉ. App thử client `mweb` cho YouTube trước, sau đó tự quay lại client mặc định nếu thất bại.
+- Provider **tự bật khi image có sẵn nó**, không phụ thuộc env: `/api/health` báo `pot: true` là đang bật còn `pot_alive: true` là provider thật sự trả lời `/ping`. Đặt `CLIPDROP_POT_URL=0` để tắt (ví dụ khi container thiếu RAM), hoặc đặt một URL loopback khác để đổi địa chỉ.
+- Với link YouTube, worker thử lần lượt client `mweb` → `tv` → `android_vr` kèm PO token rồi mới quay về client mặc định của yt-dlp; mỗi lần thử chỉ mất khoảng 2 giây. Profile thắng được ghi nhớ và dùng lại cho bước tải thật, vì URL media của client cần token sẽ bị 403 nếu thiếu token. Muốn ép một client cụ thể (ví dụ `android_vr`, hiện không cần token nhưng thường chỉ có 360p) thì đặt `CLIPDROP_YOUTUBE_CLIENTS`.
 - Provider **không bảo đảm** vượt qua bot check: nó giúp traffic trông hợp lệ hơn, không phải thuốc chữa chắc chắn. Không dùng cookie tài khoản hay proxy trả phí cho bản demo.
+
+Cách đọc kết quả khi YouTube vẫn lỗi, theo thứ tự:
+
+1. Gọi `/api/health`. `pot_alive: false` hoặc `oom_kills > 0` nghĩa là provider bị thiếu RAM (Free chỉ 512 MB) chứ không phải YouTube chặn. Khi đó cân nhắc `CLIPDROP_POT_URL=0` (chạy không PO token) hoặc nâng plan.
+2. Mở **Logs** và tìm dòng `worker raw error:`. Từ bản mới, mỗi lần thử có nhãn client, ví dụ `attempt 1: [mweb] ...`, `attempt 2: [tv] ...`, `attempt 3: [android_vr] ...` — đọc được chính xác client nào bị từ chối và vì sao.
+3. `pot_alive: true` nhưng mọi client đều bị từ chối là chặn theo IP: thử `CLIPDROP_YOUTUBE_CLIENTS=android_vr`, thử lại sau vài giờ, hoặc tạo dịch vụ ở region khác (Render không đổi region tại chỗ, sẽ có URL mới). Bản local ở nhà dùng IP dân dụng nên vẫn là đường ổn định nhất.
 
 Nếu YouTube vẫn bị chặn: xem **Logs** và tìm dòng `worker raw error:` để đọc lỗi gốc của yt-dlp; thử lại sau vài giờ; hoặc tạo dịch vụ ở region khác (Render không đổi region tại chỗ, sẽ có URL mới). Cập nhật `yt-dlp` trong `requirements-lock.txt` rồi deploy lại khi YouTube thay đổi.
 

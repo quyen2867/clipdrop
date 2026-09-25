@@ -20,6 +20,7 @@ from pydantic import BaseModel, Field
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 from yt_dlp.version import __version__ as yt_version
 
+from .diagnostics import memory_usage, pot_provider_alive
 from .media import ffmpeg_available, js_runtimes
 from . import policy
 
@@ -186,8 +187,10 @@ def worker(payload, timeout):
 
 @app.get('/api/health')
 def health():
+    used, limit, oom_kills = memory_usage()
     return dict(ffmpeg=ffmpeg_available(), yt_dlp=yt_version, js_runtime=next(iter(js_runtimes()), None),
-                pot=bool(policy.POT_URL),
+                pot=bool(policy.POT_URL), pot_alive=pot_provider_alive(),
+                memory_mb=used, memory_limit_mb=limit, oom_kills=oom_kills,
                 public=policy.PUBLIC, ttl_minutes=TTL // 60, max_file_mb=policy.MAX_FILE_BYTES // 1024**2,
                 max_duration_minutes=policy.MAX_DURATION // 60 if policy.MAX_DURATION else None)
 
