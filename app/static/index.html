@@ -1,36 +1,245 @@
 <!doctype html>
 <html lang="vi">
 <head>
-  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-  <meta name="description" content="Tải video và âm thanh công khai về máy với yt-dlp.">
-  <title>Clipdrop — Lưu một điều hay. • quyen2867</title>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="description" content="Clipdrop - Công cụ tải video và âm thanh YouTube, TikTok, Facebook chất lượng cao miễn phí.">
+  <meta name="theme-color" content="#0a0d14">
+  <title>Clipdrop — Tải Video & Âm Thanh Chất Lượng Cao</title>
   <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="/static/style.css"><script src="/static/app.js" defer></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/style.css?v=2.0">
+  <script src="/static/app.js?v=2.0" defer></script>
 </head>
 <body>
-  <header class="topbar"><a class="brand" href="/" aria-label="Clipdrop trang chủ"><span class="brand-icon">↓</span>clipdrop<span class="brand-dot">.</span></a><span class="local-badge"><i></i><span id="mode-label">Không gian local của bạn</span></span></header>
+  <!-- Ambient background lighting effects -->
+  <div class="ambient-glow glow-1" aria-hidden="true"></div>
+  <div class="ambient-glow glow-2" aria-hidden="true"></div>
+  <div class="ambient-glow glow-3" aria-hidden="true"></div>
+
+  <header class="topbar">
+    <a class="brand" href="/" aria-label="Clipdrop trang chủ">
+      <span class="brand-icon">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2 2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+      </span>
+      <span class="brand-text">clipdrop<span class="brand-dot">.</span></span>
+    </a>
+    <div class="local-badge">
+      <span class="pulse-dot"></span>
+      <span id="mode-label">Không gian local của bạn</span>
+    </div>
+  </header>
+
   <main>
-    <section class="intro"><p class="eyebrow">TỪ MỘT ĐƯỜNG LINK, VỀ MÁY CỦA BẠN</p><h1>Lưu một điều hay<span>.</span></h1><p>Video để xem lại. Âm thanh để mang theo.<br>Dán link và chọn phiên bản phù hợp với bạn.</p></section>
+    <section class="intro">
+      <div class="eyebrow-chip">
+        <span class="sparkle">✨</span> CÔNG CỤ TẢI MEDIA TỐC ĐỘ CAO
+      </div>
+      <h1>Lưu mọi video yêu thích<span class="brand-dot">.</span></h1>
+      <p class="subtitle">Tải video độ phân giải gốc lên đến 4K hoặc tách file âm thanh chất lượng cao.<br>Hỗ trợ đa nền tảng, hoàn toàn miễn phí và bảo mật.</p>
+      
+      <div class="platform-chips" aria-label="Các nền tảng được hỗ trợ">
+        <div class="platform-chip yt">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg>
+          <span>YouTube 4K</span>
+        </div>
+        <div class="platform-chip tt">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M12.525.02c1.31-.02 2.61-.01 3.91-.02.08 1.53.63 3.09 1.75 4.17 1.12 1.11 2.7 1.62 4.24 1.79v4.03c-1.44-.05-2.89-.35-4.2-.97-.57-.26-1.1-.59-1.62-1.01-.01 2.92.01 5.84-.02 8.75-.08 1.4-.54 2.79-1.35 3.94-1.31 1.92-3.58 3.17-5.91 3.21-1.43.08-2.86-.31-4.08-1.03-2.02-1.19-3.44-3.37-3.65-5.71-.02-.5-.03-1-.01-1.49.18-1.9 1.12-3.72 2.58-4.96 1.66-1.44 3.98-2.13 6.15-1.72.02 1.48-.04 2.96-.04 4.44-.99-.32-2.15-.23-3.02.37-.63.41-1.11 1.04-1.36 1.75-.21.51-.24 1.07-.14 1.61.24 1.64 1.82 3.02 3.5 2.87 1.12-.01 2.19-.66 2.77-1.61.19-.33.4-.67.41-1.06.1-1.79.06-3.57.07-5.36.01-4.03-.01-8.05.02-12.07z"/></svg>
+          <span>TikTok HD</span>
+        </div>
+        <div class="platform-chip fb">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
+          <span>Facebook Reels</span>
+        </div>
+      </div>
+    </section>
+
     <section class="workspace" aria-label="Tải video">
-      <div class="step-heading"><span class="step">01</span><h2>Bắt đầu với một đường link</h2><span class="small-tag">VIDEO / AUDIO</span></div>
-      <form id="inspect-form"><label for="url">Link video</label><div class="input-row"><span class="link-icon" aria-hidden="true">↗</span><input id="url" name="url" type="url" placeholder="https://…" required maxlength="2048" autocomplete="url"><button id="inspect-button" type="submit">Xem thông tin <span aria-hidden="true">→</span></button></div></form>
-      <p id="source-hint" class="input-hint">Hỗ trợ các nguồn công khai tương thích với yt-dlp. Mỗi lần một video.</p>
+      <div class="step-heading">
+        <span class="step">01</span>
+        <h2>Dán đường link video</h2>
+        <span class="small-tag">AUTO DETECT</span>
+      </div>
+
+      <form id="inspect-form">
+        <label for="url">Đường link cần tải</label>
+        <div class="input-row">
+          <span class="link-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+          </span>
+          <input id="url" name="url" type="url" placeholder="Dán link YouTube, TikTok hoặc Facebook vào đây…" required maxlength="2048" autocomplete="url" spellcheck="false">
+          <button id="paste-button" type="button" class="paste-btn" title="Dán từ bộ nhớ tạm">
+            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/></svg>
+            <span>Dán</span>
+          </button>
+          <button id="inspect-button" type="submit">
+            <span>Khám phá</span>
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+          </button>
+        </div>
+      </form>
+
+      <p id="source-hint" class="input-hint">Hỗ trợ link công khai từ YouTube, TikTok và Facebook. Tự động tìm chất lượng tốt nhất.</p>
+      
       <div id="notice" class="notice" role="status" hidden></div>
       <div id="error" class="error" role="alert" hidden></div>
-      <div id="loading" class="loading" role="status" hidden><span class="spinner"></span> Đang tìm thông tin và các định dạng có sẵn…</div>
-      <section id="empty" class="empty"><div class="empty-icon" aria-hidden="true">↓</div><h3>Link của bạn. Lựa chọn của bạn.</h3><p>Thông tin video và chất lượng tải xuống<br>sẽ xuất hiện ở đây.</p><div class="empty-labels"><span>Video + âm thanh</span><span>Chỉ âm thanh</span></div></section>
-      <section id="result" hidden aria-label="Thông tin và định dạng">
-        <div class="video-summary"><div class="thumbnail"><img id="thumbnail" alt="" hidden><span id="thumbnail-placeholder" aria-hidden="true">▶</span><span id="duration"></span></div><div class="video-info"><span id="source" class="source"></span><h3 id="video-title"></h3><p id="uploader"></p></div></div>
-        <div class="choose-heading"><div class="step-heading"><span class="step">02</span><h2>Chọn cách bạn muốn lưu</h2></div><div class="segmented" role="group" aria-label="Loại nội dung"><button id="video-tab" type="button" aria-pressed="true">Video</button><button id="audio-tab" type="button" aria-pressed="false">Âm thanh</button></div></div>
-        <div class="selection-grid"><div><label for="format">Chất lượng & định dạng</label><select id="format"></select></div><div class="size-block"><span>Dung lượng ước tính</span><strong id="size">—</strong></div></div>
-        <p id="format-note" class="input-hint"></p>
-        <button id="download-button" class="download-button" type="button">Chuẩn bị tải xuống <span aria-hidden="true">↓</span></button>
+      
+      <div id="loading" class="loading" role="status" hidden>
+        <div class="spinner-ring"></div>
+        <span>Đang phân tích video và truy xuất các định dạng tốt nhất…</span>
+      </div>
+
+      <section id="empty" class="empty">
+        <div class="empty-graphic">
+          <div class="empty-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polygon points="10 8 16 12 10 16 10 8"/></svg>
+          </div>
+          <div class="pulse-ring"></div>
+        </div>
+        <h3>Sẵn sàng tải xuống</h3>
+        <p>Dán liên kết bất kỳ từ YouTube, TikTok hoặc Facebook.<br>Mọi tùy chọn độ phân giải và âm thanh sẽ xuất hiện tại đây.</p>
+        <div class="empty-labels">
+          <span>✨ Full HD / 2K / 4K</span>
+          <span>🎵 Tách âm thanh MP3</span>
+          <span>⚡ Tốc độ tối đa</span>
+        </div>
       </section>
-      <section id="job" class="job" hidden aria-label="Tiến độ tải"><div class="job-top"><strong id="job-label" role="status">Đang chuẩn bị…</strong><span id="percent"></span></div><progress id="progress" max="100" aria-label="Tiến độ tải"></progress><p id="job-detail"></p><a id="save-file" class="save-file" hidden>Tải file về máy ↓</a><button id="retry-status" type="button" hidden>Kiểm tra lại tiến độ</button></section>
+
+      <section id="result" hidden aria-label="Thông tin và định dạng">
+        <div class="video-summary">
+          <div class="thumbnail">
+            <img id="thumbnail" alt="" hidden>
+            <span id="thumbnail-placeholder" class="thumb-ph" aria-hidden="true">
+              <svg viewBox="0 0 24 24" width="36" height="36" fill="currentColor"><polygon points="6 3 20 12 6 21 6 3"/></svg>
+            </span>
+            <span id="duration" class="duration-badge"></span>
+          </div>
+          <div class="video-info">
+            <div class="meta-row">
+              <span id="source" class="source"></span>
+              <span class="verified-pill">Công khai</span>
+            </div>
+            <h3 id="video-title"></h3>
+            <p id="uploader" class="uploader-name"></p>
+          </div>
+        </div>
+
+        <div class="choose-heading">
+          <div class="step-heading">
+            <span class="step">02</span>
+            <h2>Chọn định dạng lưu về máy</h2>
+          </div>
+          <div class="segmented" role="group" aria-label="Loại nội dung">
+            <button id="video-tab" type="button" aria-pressed="true">
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="2" width="20" height="20" rx="2.18" ry="2.18"/><line x1="7" y1="2" x2="7" y2="22"/><line x1="17" y1="2" x2="17" y2="22"/><line x1="2" y1="12" x2="22" y2="12"/><line x1="2" y1="7" x2="7" y2="7"/><line x1="2" y1="17" x2="7" y2="17"/><line x1="17" y1="17" x2="22" y2="17"/><line x1="17" y1="7" x2="22" y2="7"/></svg>
+              <span>Video</span>
+            </button>
+            <button id="audio-tab" type="button" aria-pressed="false">
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
+              <span>Âm thanh</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="selection-grid">
+          <div class="select-wrapper">
+            <label for="format">Độ phân giải & định dạng</label>
+            <div class="custom-select-box">
+              <select id="format"></select>
+              <span class="select-chevron" aria-hidden="true">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+              </span>
+            </div>
+          </div>
+          <div class="size-block">
+            <span>Dung lượng dự kiến</span>
+            <strong id="size">—</strong>
+          </div>
+        </div>
+
+        <p id="format-note" class="input-hint format-note"></p>
+
+        <button id="download-button" class="download-button" type="button">
+          <span class="btn-text">Bắt đầu xử lý tải xuống</span>
+          <span class="btn-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><polyline points="19 12 12 19 5 12"/></svg>
+          </span>
+        </button>
+      </section>
+
+      <section id="job" class="job" hidden aria-label="Tiến độ tải">
+        <div class="job-card">
+          <div class="job-top">
+            <div class="job-status-left">
+              <span class="status-pulse-dot"></span>
+              <strong id="job-label" role="status">Đang chuẩn bị…</strong>
+            </div>
+            <span id="percent" class="job-percent"></span>
+          </div>
+          <div class="progress-container">
+            <progress id="progress" max="100" aria-label="Tiến độ tải"></progress>
+          </div>
+          <p id="job-detail" class="job-detail"></p>
+          <a id="save-file" class="save-file" hidden>
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2 2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            <span>Tải file về máy ngay</span>
+          </a>
+          <button id="retry-status" type="button" class="retry-btn" hidden>
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
+            <span>Kiểm tra lại tiến độ</span>
+          </button>
+        </div>
+      </section>
     </section>
-    <div class="footnotes"><div><span class="note-icon">↙</span><div><strong>Lưu ngay trên máy</strong><p id="storage-hint">Xử lý qua backend local của bạn.</p></div></div><div><span class="note-icon">≋</span><div><strong>Đúng chất lượng bạn cần</strong><p>Chọn từ những định dạng nguồn cung cấp.</p></div></div></div>
-    <p class="rights">Chỉ tải nội dung bạn sở hữu hoặc được phép tải. Không hỗ trợ DRM, nội dung riêng tư hay vượt giới hạn truy cập.</p>
+
+    <!-- Bento-grid modern features -->
+    <div class="footnotes">
+      <div class="feature-card">
+        <div class="feature-icon-wrap f-1">
+          <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+        </div>
+        <div class="feature-content">
+          <strong>Tốc độ tối đa</strong>
+          <p id="storage-hint">Truy xuất trực tiếp luồng stream chất lượng cao nhất mà không bị bóp băng thông.</p>
+        </div>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon-wrap f-2">
+          <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+        </div>
+        <div class="feature-content">
+          <strong>Bảo mật & Không lưu vết</strong>
+          <p>Xử lý qua môi trường độc lập, file tạm tự động dọn sạch sau khi phiên tải hoàn tất.</p>
+        </div>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon-wrap f-3">
+          <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>
+        </div>
+        <div class="feature-content">
+          <strong>Đúng chất lượng gốc</strong>
+          <p>Hỗ trợ chuẩn 4K, 2K, 1080p 60fps và file âm thanh MP3 192/320kbps nguyên bản.</p>
+        </div>
+      </div>
+    </div>
+
+    <p class="rights">Chỉ tải nội dung bạn sở hữu hoặc được phép tải công khai. Không hỗ trợ nội dung có bản quyền DRM hoặc giới hạn đăng nhập.</p>
   </main>
-  <footer><span>© quyen2867 <span class="footer-slash">/</span> Made for your own collection</span><span><input id="owner-key" type="password" placeholder="Mã chủ web" autocomplete="off" style="width:130px;padding:4px 8px;font-size:12px"><span id="health">Đang kiểm tra hệ thống…</span></span></footer>
+
+  <footer>
+    <div class="footer-left">
+      <span class="footer-logo">clipdrop.</span>
+      <span>© quyen2867 · Công cụ tải video cá nhân</span>
+    </div>
+    <div class="footer-right">
+      <input id="owner-key" type="password" placeholder="Mã quản trị" autocomplete="off" title="Mã chủ website để bỏ qua hạn mức" class="owner-input">
+      <div class="health-badge">
+        <span class="health-dot"></span>
+        <span id="health">Đang kiểm tra hệ thống…</span>
+      </div>
+    </div>
+  </footer>
 </body>
 </html>

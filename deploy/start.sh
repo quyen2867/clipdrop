@@ -12,7 +12,7 @@ case "$(printf %s "${CLIPDROP_POT_URL:-}" | tr 'A-Z' 'a-z')" in
   0 | off | none) pot_url='' ;;
 esac
 if [ -n "$pot_url" ] && [ -f /opt/bgutil/app/build/main.js ]; then
-  /opt/bgutil/node /opt/bgutil/app/build/main.js --host 127.0.0.1 &
+  /opt/bgutil/node --max-old-space-size=128 /opt/bgutil/app/build/main.js --host 127.0.0.1 &
   tries=0
   until python -c "import urllib.request; urllib.request.urlopen('$pot_url/ping', timeout=1)" 2>/dev/null; do
     tries=$((tries + 1))

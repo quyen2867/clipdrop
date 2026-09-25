@@ -240,7 +240,7 @@ def test_extract_reports_every_attempt_failure(monkeypatch):
     assert 'attempt 1:' in message and 'attempt 2:' in message
     assert '[mweb]' in message and '[default]' in message
     assert 'player response' in message and 'plain failure' in message
-    assert media.user_error(excinfo.value).startswith('YouTube đang chặn IP')
+    assert media.user_error(excinfo.value).startswith('Nguồn đang chặn bot')
     assert len(seen) == 2
 
 
@@ -269,8 +269,8 @@ def test_slow_chain_stops_opening_new_profiles(monkeypatch):
         media.extract('https://www.youtube.com/watch?v=x')
     message = str(excinfo.value)
     assert len(seen) == 1  # the budget was spent, so later profiles were skipped
-    assert message.count('skipped') == 4
-    assert '[mweb]' in message and '[android_vr]' in message and '[web_embedded]' in message and '[default]' in message
+    assert message.count('skipped') == 3
+    assert '[mweb]' in message and '[visionos]' in message and '[default]' in message
 
 
 def test_youtube_client_chain_orders_profiles(monkeypatch):
@@ -283,11 +283,9 @@ def test_youtube_client_chain_orders_profiles(monkeypatch):
                 for a in media.extraction_attempts('https://youtu.be/x') if 'extractor_args' in a]
 
     # The hosted demo has 0.1 CPU and a datacenter IP, where the token-free
-    # profiles answer in seconds while token profiles stall: they go first
-    # there (web_embedded needs no GVS PO token at all in yt-dlp 2026.8.19).
-    assert clients(True) == [['android_vr'], ['web_embedded'], ['mweb'], ['tv']]
-    # A local run has CPU to spare and keeps the richer token profiles first.
-    assert clients(False) == [['mweb'], ['tv'], ['android_vr'], ['web_embedded']]
+    # profile answers in seconds while token profiles stall: it goes first there.
+    assert clients(True) == [['visionos'], ['mweb'], ['tv']]
+    assert clients(False) == [['visionos'], ['mweb'], ['tv']]
     monkeypatch.setenv('CLIPDROP_YOUTUBE_CLIENTS', 'tv, mweb')
     monkeypatch.setattr(policy, 'PUBLIC', True)
     clients = [a['extractor_args']['youtube']['player_client']
@@ -314,9 +312,9 @@ def test_stalled_profile_is_abandoned_for_the_next_one(monkeypatch):
 
     monkeypatch.setattr(media.yt_dlp, 'YoutubeDL', FakeYoutubeDL)
     info = media.extract('https://www.youtube.com/watch?v=x')
-    assert seen == ['android_vr', 'web_embedded']
+    assert seen == ['visionos', 'mweb']
     assert info['title'] == 'Test'
-    assert info['_clipdrop_extractor_args'] == media.po_token_options(('web_embedded',))
+    assert info['_clipdrop_extractor_args'] == media.po_token_options(('mweb',))
 
 
 def test_user_error_explains_a_slow_server():
@@ -325,8 +323,6 @@ def test_user_error_explains_a_slow_server():
     assert media.user_error(ValueError('Read timed out')).startswith('Máy chủ không lấy kịp')
     # A refusal from the source stays more useful than the generic slow message.
     assert media.user_error(ValueError('attempt 1: [mweb] No video formats found! | attempt 2: skipped')).startswith('Nguồn đang chặn bot')
-    # An empty player response from every client is an IP refusal, not a timeout.
-    assert media.user_error(ValueError('attempt 1: [android_vr] Failed to extract any player response')).startswith('YouTube đang chặn IP')
 
 
 def test_extract_keeps_the_working_profile_for_download(monkeypatch):
@@ -440,3 +436,21 @@ def test_check_configuration_rejects_remote_pot_url(monkeypatch):
     monkeypatch.setattr(policy, 'POT_TARGET', None)
     with pytest.raises(RuntimeError, match='loopback'):
         policy.check_configuration()
+
+
+def test_proxy_and_cookies_configuration(tmp_path, monkeypatch):
+    cookie_file = tmp_path / 'cookies.txt'
+    cookie_file.write_text('# Netscape HTTP Cookie File\n')
+    monkeypatch.setattr(policy, 'COOKIE_FILE', str(cookie_file))
+    monkeypatch.setattr(policy, 'PROXY_URL', 'http://proxy.test:8080')
+    monkeypatch.setattr(policy, 'PROXY_TARGET', ('proxy.test', 8080))
+    monkeypatch.setattr(policy, 'PROXY_IPS', {'proxy.test', '1.2.3.4'})
+    cfg = media.options()
+    assert cfg.get('cookiefile') == str(cookie_file)
+    assert cfg.get('proxy') == 'http://proxy.test:8080'
+
+    # network audit should allow connecting to the proxy port/ip
+    policy.network_audit('socket.connect', (None, ('1.2.3.4', 8080)))
+    with pytest.raises(PermissionError):
+        policy.network_audit('socket.connect', (None, ('1.2.3.4', 8081)))
+

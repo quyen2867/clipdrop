@@ -57,6 +57,49 @@ POT_URL = pot_url()
 POT_TARGET = loopback_target(POT_URL)
 
 
+def proxy_target(url):
+    if not url:
+        return None, set()
+    try:
+        parts = urlsplit(url)
+        if parts.hostname:
+            port = parts.port or (443 if parts.scheme == 'https' else 80)
+            target = (parts.hostname, port)
+            ips = {parts.hostname}
+            try:
+                for item in socket.getaddrinfo(parts.hostname, port, type=socket.SOCK_STREAM):
+                    ips.add(item[4][0])
+            except OSError:
+                pass
+            return target, ips
+    except Exception:
+        pass
+    return None, set()
+
+
+PROXY_URL = os.getenv('CLIPDROP_PROXY', '') or os.getenv('HTTPS_PROXY', '') or os.getenv('HTTP_PROXY', '')
+PROXY_TARGET, PROXY_IPS = proxy_target(PROXY_URL)
+
+COOKIE_FILE = os.getenv('CLIPDROP_COOKIE_FILE', '')
+_raw_cookies = (os.getenv('CLIPDROP_COOKIES', '') or os.getenv('YOUTUBE_COOKIES', '')).strip()
+if _raw_cookies and not COOKIE_FILE:
+    import base64
+    _decoded_cookies = _raw_cookies
+    try:
+        if not _raw_cookies.startswith('# Netscape') and '\n' not in _raw_cookies:
+            candidate = base64.b64decode(_raw_cookies).decode('utf-8', errors='ignore')
+            if '# Netscape' in candidate or '\t' in candidate:
+                _decoded_cookies = candidate
+    except Exception:
+        pass
+    _cookie_path = Path('/tmp/clipdrop_cookies.txt')
+    try:
+        _cookie_path.write_text(_decoded_cookies, encoding='utf-8')
+        COOKIE_FILE = str(_cookie_path)
+    except OSError:
+        pass
+
+
 def check_configuration():
     if PUBLIC and (not PUBLIC_HOST or len(os.getenv('CLIPDROP_SESSION_SECRET', '')) < 32):
         raise RuntimeError('Public mode requires a hostname and CLIPDROP_SESSION_SECRET (32+ characters).')
@@ -145,6 +188,8 @@ def network_audit(event, args):
         if not isinstance(address, tuple) or len(address) < 2:
             raise PermissionError('Chỉ cho phép kết nối tới địa chỉ Internet công khai qua cổng 80/443.')
         if POT_TARGET and (address[0], address[1]) == POT_TARGET:
+            return
+        if PROXY_TARGET and address[1] == PROXY_TARGET[1] and address[0] in PROXY_IPS:
             return
         if not public_address(address[0]) or address[1] not in (80, 443):
             raise PermissionError('Chỉ cho phép kết nối tới địa chỉ Internet công khai qua cổng 80/443.')

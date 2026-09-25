@@ -92,6 +92,24 @@ async function poll() {
   polling = false;
 }
 $('retry-status').addEventListener('click', poll);
+const pasteBtn = $('paste-button');
+if (pasteBtn) {
+  pasteBtn.addEventListener('click', async () => {
+    try {
+      if (navigator.clipboard && navigator.clipboard.readText) {
+        const text = await navigator.clipboard.readText();
+        if (text) {
+          $('url').value = text.trim();
+          $('url').focus();
+        }
+      } else {
+        $('url').focus();
+      }
+    } catch {
+      $('url').focus();
+    }
+  });
+}
 const ownerInput = $('owner-key');
 if (ownerInput) {
   ownerInput.value = localStorage.getItem('clipdrop-owner') || '';

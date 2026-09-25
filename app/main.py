@@ -190,6 +190,7 @@ def health():
     used, limit, oom_kills = memory_usage()
     return dict(ffmpeg=ffmpeg_available(), yt_dlp=yt_version, js_runtime=next(iter(js_runtimes()), None),
                 pot=bool(policy.POT_URL), pot_alive=pot_provider_alive(),
+                cookies=bool(policy.COOKIE_FILE), proxy=bool(policy.PROXY_URL),
                 memory_mb=used, memory_limit_mb=limit, oom_kills=oom_kills,
                 public=policy.PUBLIC, ttl_minutes=TTL // 60, max_file_mb=policy.MAX_FILE_BYTES // 1024**2,
                 max_duration_minutes=policy.MAX_DURATION // 60 if policy.MAX_DURATION else None)
