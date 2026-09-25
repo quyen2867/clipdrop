@@ -151,6 +151,7 @@ def options():
     config = dict(quiet=True, no_warnings=True, logger=QuietLogger(), noplaylist=True,
                 socket_timeout=20, retries=2, fragment_retries=2, cachedir=False,
                 allow_unplayable_formats=False, geo_bypass=False, proxy=policy.PROXY_URL or '',
+                source_address='0.0.0.0',
                 js_runtimes=js_runtimes(),
                 remote_components=set())
     if policy.COOKIE_FILE and os.path.isfile(policy.COOKIE_FILE):
@@ -288,8 +289,8 @@ def user_error(exc):
     if any(s in message for s in ('bot', 'captcha', 'player response', 'player_response', 'failed to extract',
                                   'no video formats', 'needs to be reloaded')):
         return 'Nguồn đang chặn bot từ IP máy chủ. Hãy thử link khác hoặc dùng bản local tại nhà.'
-    if any(s in message for s in ('unavailable', 'not available', 'does not exist', 'has been removed', 'deleted')):
-        return 'Video này không tồn tại, đã bị xóa hoặc không khả dụng trên YouTube. Hãy thử kiểm tra lại đường link.'
+    if any(s in message for s in ('video is unavailable', 'this video is unavailable', 'video does not exist', 'has been removed by the uploader', 'has been removed by')):
+        return 'Video này không tồn tại, đã bị xóa hoặc đặt ở chế độ riêng tư trên YouTube.'
     if 'unsupported url' in message:
         return 'Link này chưa được yt-dlp hỗ trợ. Hãy thử link trực tiếp của một video.'
     if any(s in message for s in ('không phản hồi sau', 'hết ngân sách thời gian thử client', 'timed out', 'timeout')):
