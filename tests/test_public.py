@@ -276,13 +276,54 @@ def test_slow_chain_stops_opening_new_profiles(monkeypatch):
 def test_youtube_client_chain_orders_profiles(monkeypatch):
     monkeypatch.setattr(policy, 'POT_URL', 'http://127.0.0.1:4416')
     monkeypatch.delenv('CLIPDROP_YOUTUBE_CLIENTS', raising=False)
-    clients = [a['extractor_args']['youtube']['player_client']
-               for a in media.extraction_attempts('https://youtu.be/x') if 'extractor_args' in a]
-    assert clients == [['mweb'], ['tv'], ['android_vr']]
+
+    def clients(public):
+        monkeypatch.setattr(policy, 'PUBLIC', public)
+        return [a['extractor_args']['youtube']['player_client']
+                for a in media.extraction_attempts('https://youtu.be/x') if 'extractor_args' in a]
+
+    # The hosted demo has 0.1 CPU and a datacenter IP, where the token-free
+    # profile answers in seconds while token profiles stall: it goes first there.
+    assert clients(True) == [['android_vr'], ['mweb'], ['tv']]
+    # A local run has CPU to spare and keeps the richer token profiles first.
+    assert clients(False) == [['mweb'], ['tv'], ['android_vr']]
     monkeypatch.setenv('CLIPDROP_YOUTUBE_CLIENTS', 'tv, mweb')
+    monkeypatch.setattr(policy, 'PUBLIC', True)
     clients = [a['extractor_args']['youtube']['player_client']
                for a in media.extraction_attempts('https://youtu.be/x') if 'extractor_args' in a]
     assert clients == [['tv', 'mweb']]
+
+
+def test_stalled_profile_is_abandoned_for_the_next_one(monkeypatch):
+    monkeypatch.setattr(policy, 'PUBLIC', True)
+    monkeypatch.setattr(policy, 'MAX_DURATION', 600)
+    monkeypatch.delenv('CLIPDROP_YOUTUBE_CLIENTS', raising=False)
+    monkeypatch.setattr(policy, 'POT_URL', 'http://127.0.0.1:4416')
+    monkeypatch.setattr(media, 'ATTEMPT_TIMEOUT_SECONDS', 0.2)
+    seen = []
+
+    class FakeYoutubeDL:
+        def __init__(self, config): seen.append(media.client_label(config))
+        def __enter__(self): return self
+        def __exit__(self, *_exc): return False
+        def extract_info(self, _url, download=False):
+            if len(seen) == 1:
+                time.sleep(10)  # a stalled profile used to cost the whole budget
+            return dict(title='Test', availability='public', duration=10, formats=[])
+
+    monkeypatch.setattr(media.yt_dlp, 'YoutubeDL', FakeYoutubeDL)
+    info = media.extract('https://www.youtube.com/watch?v=x')
+    assert seen == ['android_vr', 'mweb']
+    assert info['title'] == 'Test'
+    assert info['_clipdrop_extractor_args'] == media.po_token_options(('mweb',))
+
+
+def test_user_error_explains_a_slow_server():
+    assert media.user_error(ValueError('attempt 1: [mweb] không phản hồi sau 20s')).startswith('Máy chủ không lấy kịp')
+    assert media.user_error(ValueError('attempt 2: [tv] skipped: hết ngân sách thời gian thử client')).startswith('Máy chủ không lấy kịp')
+    assert media.user_error(ValueError('Read timed out')).startswith('Máy chủ không lấy kịp')
+    # A refusal from the source stays more useful than the generic slow message.
+    assert media.user_error(ValueError('attempt 1: [mweb] No video formats found! | attempt 2: skipped')).startswith('Nguồn đang chặn bot')
 
 
 def test_extract_keeps_the_working_profile_for_download(monkeypatch):

@@ -7,6 +7,7 @@ import re
 import shutil
 import socket
 import subprocess
+import threading
 import time
 from urllib.parse import urlsplit
 
@@ -67,9 +68,18 @@ def is_youtube(url):
 def youtube_client_chain():
     """Player-client profiles to try in order; CLIPDROP_YOUTUBE_CLIENTS forces one list."""
     override = [name.strip() for name in os.getenv('CLIPDROP_YOUTUBE_CLIENTS', '').split(',') if name.strip()]
+    if override:
+        return [tuple(override)]
     # Datacenter IPs are refused differently per client, so several profiles are
-    # tried: mweb takes a GVS token, tv a player token, android_vr none at all.
-    return [tuple(override)] if override else [('mweb',), ('tv',), ('android_vr',)]
+    # tried: android_vr needs no PO token, mweb takes a GVS token, tv a player
+    # token. Measured in a container limited to 0.1 CPU: the token-free profile
+    # answers in ~4s while mweb needs ~35s, and the live free-plan service spent
+    # 44s without any token profile answering. The token-free profile therefore
+    # goes first on the hosted demo, with the richer token profiles as fallbacks;
+    # local runs have CPU to spare and keep the token profiles first.
+    if policy.PUBLIC:
+        return [('android_vr',), ('mweb',), ('tv',)]
+    return [('mweb',), ('tv',), ('android_vr',)]
 
 
 def po_token_options(clients=None):
@@ -87,7 +97,8 @@ def client_label(config):
     return ','.join((config.get('extractor_args') or {}).get('youtube', {}).get('player_client', [])) or 'default'
 
 
-ATTEMPT_BUDGET_SECONDS = 40  # keep a multi-client YouTube chain inside the 90s inspect timeout
+ATTEMPT_TIMEOUT_SECONDS = 20  # one stalled profile must not delay the profile behind it
+ATTEMPT_BUDGET_SECONDS = 45   # whole chain must still fit the 90s inspect timeout
 
 
 def extraction_attempts(url):
@@ -100,6 +111,33 @@ def extraction_attempts(url):
             attempts.append(config)
     attempts.append(options())
     return attempts
+
+
+def attempt_extract(config, url, timeout):
+    """Extract with one profile, giving up on it after timeout seconds.
+
+    yt-dlp offers no way to interrupt an extraction, and a profile that waits on a
+    PO token provider can stall far past its socket timeouts on the free plan. The
+    work runs in a daemon thread that is left behind instead of blocking the next
+    profile; the worker process exits as soon as the answer is printed.
+    """
+    holder = {}
+
+    def target():
+        try:
+            with yt_dlp.YoutubeDL(config) as ydl:
+                holder['info'] = ydl.extract_info(url, download=False)
+        except Exception as exc:  # the reason is reported with this profile's label
+            holder['error'] = exc
+
+    thread = threading.Thread(target=target, daemon=True, name='clipdrop-extract')
+    thread.start()
+    thread.join(timeout)
+    if thread.is_alive():
+        raise TimeoutError(f'không phản hồi sau {timeout:g}s')
+    if 'error' in holder:
+        raise holder['error']
+    return holder['info']
 
 
 class QuietLogger:
@@ -197,7 +235,9 @@ def extract(url):
     attempts = extraction_attempts(url)
     failures = []
     # Render Free has 0.1 CPU, so a slow profile must not eat the whole 90s
-    # inspect timeout: stop opening new ones and report the reasons instead.
+    # inspect timeout: every profile gets its own wall, and the budget only
+    # decides whether another profile is opened at all. Reporting the reasons
+    # stays possible because a skipped profile is listed too.
     deadline = time.monotonic() + ATTEMPT_BUDGET_SECONDS if len(attempts) > 1 else None
     for attempt, config in enumerate(attempts, start=1):
         label = client_label(config)
@@ -205,10 +245,9 @@ def extract(url):
             failures.append(f'attempt {attempt}: [{label}] skipped: hết ngân sách thời gian thử client')
             continue
         try:
-            with yt_dlp.YoutubeDL(config) as ydl:
-                info = ydl.extract_info(url, download=False)
+            info = attempt_extract(config, url, ATTEMPT_TIMEOUT_SECONDS)
             break
-        except yt_dlp.utils.YoutubeDLError as exc:
+        except Exception as exc:
             failures.append(f'attempt {attempt}: [{label}] {str(exc).strip()[-300:]}')
     else:
         # Keep every reason with its client label so Render Logs show which
@@ -248,4 +287,6 @@ def user_error(exc):
         return 'Nguồn đang chặn bot từ IP máy chủ. Hãy thử link khác hoặc dùng bản local tại nhà.'
     if 'unsupported url' in message:
         return 'Link này chưa được yt-dlp hỗ trợ. Hãy thử link trực tiếp của một video.'
+    if any(s in message for s in ('không phản hồi sau', 'hết ngân sách thời gian thử client', 'timed out', 'timeout')):
+        return 'Máy chủ không lấy kịp dữ liệu từ nguồn (nguồn phản hồi chậm hoặc chặn IP datacenter). Hãy thử lại sau ít phút.'
     return 'Không thể đọc hoặc tải video từ nguồn này. Kiểm tra link, mạng và phiên bản yt-dlp rồi thử lại.'
