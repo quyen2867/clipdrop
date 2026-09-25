@@ -176,6 +176,22 @@ def test_pot_target_requires_loopback_http():
         assert policy.loopback_target(url) is None
 
 
+def test_pot_url_defaults_on_with_bundled_provider_and_env_overrides(monkeypatch):
+    # The public image ships the provider, so it is on without any env var.
+    assert policy.pot_url(public=True, bundled=True, value='') == policy.DEFAULT_POT_URL
+    assert policy.pot_url(public=False, bundled=True, value='') == ''
+    assert policy.pot_url(public=True, bundled=False, value='') == ''
+    # An explicit value always wins: custom loopback URL, or the off switch.
+    assert policy.pot_url(public=True, bundled=True, value='http://127.0.0.1:9999') == \
+        'http://127.0.0.1:9999'
+    for value in ['0', 'off', 'none', ' OFF ']:
+        assert policy.pot_url(public=True, bundled=True, value=value) == ''
+    monkeypatch.setenv('CLIPDROP_POT_URL', 'http://127.0.0.1:4417')
+    assert policy.pot_url(public=True, bundled=True) == 'http://127.0.0.1:4417'
+    monkeypatch.setenv('CLIPDROP_POT_URL', '')
+    assert policy.pot_url(public=True, bundled=True) == policy.DEFAULT_POT_URL
+
+
 def test_network_guard_allows_only_the_configured_pot_port(monkeypatch):
     monkeypatch.setattr(policy, 'POT_TARGET', ('127.0.0.1', 4416))
     policy.network_audit('socket.connect', (None, ('127.0.0.1', 4416)))
@@ -196,6 +212,34 @@ def test_youtube_attempts_use_pot_provider_then_fall_back(monkeypatch):
     assert len(media.extraction_attempts('https://www.tiktok.com/@a/video/1')) == 1
     monkeypatch.setattr(policy, 'POT_URL', '')
     assert len(media.extraction_attempts('https://www.youtube.com/watch?v=x')) == 1
+
+
+def test_extract_reports_every_attempt_failure(monkeypatch):
+    monkeypatch.setattr(policy, 'POT_URL', 'http://127.0.0.1:4416')
+    seen = []
+
+    class FakeYoutubeDL:
+        def __init__(self, config):
+            seen.append(config)
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_exc):
+            return False
+
+        def extract_info(self, _url, download=False):
+            raise media.yt_dlp.utils.DownloadError(
+                'failed to extract any player response' if len(seen) == 1 else 'plain failure')
+
+    monkeypatch.setattr(media.yt_dlp, 'YoutubeDL', FakeYoutubeDL)
+    with pytest.raises(media.yt_dlp.utils.YoutubeDLError) as excinfo:
+        media.extract('https://www.youtube.com/watch?v=x')
+    message = str(excinfo.value)
+    assert 'attempt 1:' in message and 'attempt 2:' in message
+    assert 'player response' in message and 'plain failure' in message
+    assert media.user_error(excinfo.value).startswith('Nguồn đang chặn bot')
+    assert len(seen) == 2
 
 
 def test_health_reports_pot_state(public_client, monkeypatch):

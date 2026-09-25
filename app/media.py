@@ -180,16 +180,18 @@ def choices_for(info, ffmpeg):
 
 def extract(url):
     validate_url(url)
-    failure = None
-    for config in extraction_attempts(url):
+    failures = []
+    for attempt, config in enumerate(extraction_attempts(url), start=1):
         try:
             with yt_dlp.YoutubeDL(config) as ydl:
                 info = ydl.extract_info(url, download=False)
             break
         except yt_dlp.utils.YoutubeDLError as exc:
-            failure = exc
+            failures.append(f'attempt {attempt}: {str(exc).strip()[-300:]}')
     else:
-        raise failure
+        # Keep every reason so logs show whether the PO token path or the
+        # plain yt-dlp path was the one the source refused.
+        raise yt_dlp.utils.DownloadError(' | '.join(failures))
     guard(info)
     if policy.PUBLIC and not info.get('duration'):
         raise MediaError('Nguồn không cung cấp thời lượng. Bản miễn phí chưa hỗ trợ video này.')

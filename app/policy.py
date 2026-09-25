@@ -30,7 +30,19 @@ _limits = defaultdict(deque)
 _lock = threading.Lock()
 _transfer = {'day': '', 'bytes': 0}
 COOKIE = 'clipdrop_session'
-POT_URL = os.getenv('CLIPDROP_POT_URL', '').strip()
+DEFAULT_POT_URL = 'http://127.0.0.1:4416'
+BUNDLED_POT_FILE = Path('/opt/bgutil/app/build/main.js')
+DISABLED_POT_VALUES = ('0', 'off', 'none')
+
+
+def pot_url(public=None, bundled=None, value=None):
+    """Provider URL: CLIPDROP_POT_URL when set, else the bundled provider in the public image."""
+    value = os.getenv('CLIPDROP_POT_URL', '').strip() if value is None else value.strip()
+    if value:
+        return '' if value.lower() in DISABLED_POT_VALUES else value
+    public = PUBLIC if public is None else public
+    bundled = BUNDLED_POT_FILE.is_file() if bundled is None else bundled
+    return DEFAULT_POT_URL if public and bundled else ''
 
 
 def loopback_target(url):
@@ -41,6 +53,7 @@ def loopback_target(url):
     return None
 
 
+POT_URL = pot_url()
 POT_TARGET = loopback_target(POT_URL)
 
 

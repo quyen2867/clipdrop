@@ -5,14 +5,19 @@ set -eu
 
 # PO token provider (bgutil) listening on loopback only. It exists so YouTube
 # accepts requests from datacenter IPs; without it the app still runs, just
-# without PO tokens. Workers may reach this single loopback port.
-if [ -n "${CLIPDROP_POT_URL:-}" ]; then
+# without PO tokens. Workers may reach this single loopback port. It starts by
+# default when the image bundles it; CLIPDROP_POT_URL=0 turns it off.
+pot_url="${CLIPDROP_POT_URL:-http://127.0.0.1:4416}"
+case "$(printf %s "${CLIPDROP_POT_URL:-}" | tr 'A-Z' 'a-z')" in
+  0 | off | none) pot_url='' ;;
+esac
+if [ -n "$pot_url" ] && [ -f /opt/bgutil/app/build/main.js ]; then
   /opt/bgutil/node /opt/bgutil/app/build/main.js --host 127.0.0.1 &
   tries=0
-  until python -c "import urllib.request; urllib.request.urlopen('${CLIPDROP_POT_URL}/ping', timeout=1)" 2>/dev/null; do
+  until python -c "import urllib.request; urllib.request.urlopen('$pot_url/ping', timeout=1)" 2>/dev/null; do
     tries=$((tries + 1))
     if [ "$tries" -ge 40 ]; then
-      echo "PO token provider did not answer on ${CLIPDROP_POT_URL}; continuing without it." >&2
+      echo "PO token provider did not answer on $pot_url; continuing without it." >&2
       break
     fi
     sleep 0.5

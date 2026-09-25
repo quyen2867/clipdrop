@@ -60,7 +60,7 @@ deno --version
 
 Khởi động lại sau cập nhật. Nếu nhận “định dạng đã thay đổi”, xem thông tin video lại. Nếu phiên hết hạn hoặc backend vừa khởi động lại, tải lại trang và nhập link lại. `requirements-lock.txt` ghim các gói Python, bao gồm công cụ test; Docker dùng Python 3.14 trên Debian Trixie. Môi trường này đã kiểm tra tải TikTok công khai; khả năng truy cập vẫn tùy nguồn và mạng của máy chủ. Khi cập nhật yt-dlp cho bản Docker, cập nhật cả lock và yt-dlp-ejs tương ứng rồi kiểm thử lại.
 
-Bản Docker khi chạy chế độ public khởi động kèm **PO token provider bgutil** chỉ nghe trên loopback. Với link YouTube, worker thử client `mweb` kèm PO token trước; nếu lỗi thì tự quay lại client mặc định của yt-dlp. Bật/tắt bằng `CLIPDROP_POT_URL` (mặc định `http://127.0.0.1:4416`, khai báo trong `render.yaml`; để trống là tắt) và đổi client bằng `CLIPDROP_YOUTUBE_CLIENTS`. Provider không làm thay đổi bản local: chỉ chạy trong image Docker của repo.
+Bản Docker khi chạy chế độ public khởi động kèm **PO token provider bgutil** chỉ nghe trên loopback. Với link YouTube, worker thử client `mweb` kèm PO token trước; nếu lỗi thì tự quay lại client mặc định của yt-dlp. Provider **tự bật** khi image có sẵn nó (loopback `http://127.0.0.1:4416`), không cần khai báo env; đặt `CLIPDROP_POT_URL=0` để tắt, hoặc đặt URL loopback khác để đổi địa chỉ. Đổi client bằng `CLIPDROP_YOUTUBE_CLIENTS`. Provider không làm thay đổi bản local: chỉ chạy trong image Docker của repo.
 
 ## Cấu trúc
 

@@ -53,7 +53,7 @@ Các lớp này giảm rủi ro của bản demo, **không thay thế firewall e
 YouTube chấm điểm IP datacenter (Render, AWS/GCP) là bot và có thể trả “Sign in to confirm you're not a bot” hoặc không trả player response, trong khi TikTok/Facebook vẫn tải được. Cách xử lý đã có trong repo:
 
 - Image Docker chạy kèm **bgutil PO token provider** (`brainicism/bgutil-ytdlp-pot-provider:2.0.0`) trên `127.0.0.1:4416`; `deploy/start.sh` khởi động nó trước uvicorn và chờ `/ping`. Provider chỉ nhận kết nối loopback nên không lộ ra Internet.
-- App gọi provider qua `CLIPDROP_POT_URL` (đã khai báo trong `render.yaml`) và thử client `mweb` cho YouTube trước, sau đó tự quay lại client mặc định nếu thất bại. `/api/health` báo `pot: true` khi đã bật.
+- Provider **tự bật khi image có sẵn nó**, không phụ thuộc env: `/api/health` báo `pot: true` là đang bật. Đặt `CLIPDROP_POT_URL=0` để tắt (ví dụ khi container thiếu RAM), hoặc đặt một URL loopback khác để đổi địa chỉ. App thử client `mweb` cho YouTube trước, sau đó tự quay lại client mặc định nếu thất bại.
 - Provider **không bảo đảm** vượt qua bot check: nó giúp traffic trông hợp lệ hơn, không phải thuốc chữa chắc chắn. Không dùng cookie tài khoản hay proxy trả phí cho bản demo.
 
 Nếu YouTube vẫn bị chặn: xem **Logs** và tìm dòng `worker raw error:` để đọc lỗi gốc của yt-dlp; thử lại sau vài giờ; hoặc tạo dịch vụ ở region khác (Render không đổi region tại chỗ, sẽ có URL mới). Cập nhật `yt-dlp` trong `requirements-lock.txt` rồi deploy lại khi YouTube thay đổi.
